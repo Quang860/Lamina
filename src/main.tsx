@@ -5,6 +5,8 @@ import './index.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+   import TestAI from "./TestAI";
+
+<TestAI />
   </StrictMode>,
 );
