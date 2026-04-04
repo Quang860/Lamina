@@ -1,32 +1,19 @@
 export default async function handler(req, res) {
-  
   if (req.method !== "POST") {
-    
     return res.status(405).json({ error: "Method not allowed" });
   }
-  console.log("Truoc try API KEY:", process.env.GEMINI_API_KEY);
+
   try {
     const { message } = req.body;
+    const apiKey = process.env.GEMINI_API_KEY;
 
-   const apiKey = process.env.GEMINI_API_KEY;
-   console.log("Sau try API KEY:", process.env.GEMINI_API_KEY);
-
-const response = await fetch(
-  `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-  {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      contents: [
-        {
-          parts: [{ text: message }]
-        }
-      ]
-    })
-  }
-);
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify({
           contents: [
             {
@@ -39,24 +26,19 @@ const response = await fetch(
 
     const text = await response.text();
 
-let data;
-try {
-  data = JSON.parse(text);
-} catch (e) {
-  return res.status(500).json({
-    error: "API trả về không phải JSON",
-    raw: text
-  });
-}
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      return res.status(500).json({
+        error: "API trả về không phải JSON",
+        raw: text
+      });
+    }
 
-    console.log("FULL RESPONSE:", JSON.stringify(data, null, 2));
+    console.log("FULL RESPONSE:", data);
 
     if (!response.ok || data.error) {
-  return res.status(500).json({
-    error: "Google API lỗi",
-    detail: data
-  });
-}
       return res.status(500).json({
         error: "Google API lỗi",
         detail: data
