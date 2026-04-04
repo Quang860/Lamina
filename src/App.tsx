@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Send, User, Bot, Loader2, AlertCircle, BookOpen, Newspaper, RefreshCcw, Globe, Activity, Image as ImageIcon, X, History, Plus, MessageSquare, Trash2, BarChart2, PanelLeftClose, PanelRightClose, Key, Pencil, Check, Zap } from 'lucide-react';
@@ -11,27 +12,13 @@ import { TradingChart, Trendline, Zone } from './components/TradingChart';
 import { SentimentDashboard } from './components/SentimentDashboard';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CandlestickData } from 'lightweight-charts';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-async function sendMessageToAI(message) {
-  const res = await fetch("/api/chat", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON."string"ify({ message })
-  });
-
-  const data = await res.json();
-  return data.reply;
-}
 
 // Utility for Tailwind classes
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const CustomLogo = ({ className, style }: { className?: "string", style?: React.CSSProperties }) => (
+const CustomLogo = ({ className, style }: { className?: string, style?: React.CSSProperties }) => (
   <svg viewBox="0 0 100 100" className={className} style={style} fill="none" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="logo-gradient" x1="0%" y1="100%" x2="100%" y2="0%">
@@ -59,16 +46,17 @@ const CustomLogo = ({ className, style }: { className?: "string", style?: React.
 
 // Initialize Gemini API inside components to pick up dynamic keys
 
-const getSystemInstruction = (dynamicContext: "string" = '') => {
+const getSystemInstruction = (dynamicContext: string = '') => {
   const now = new Date();
-  const dateStr = now.toLocaleDate"string"('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  const timeStr = now.toLocaleTime"string"('vi-VN');
+  const dateStr = now.toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const timeStr = now.toLocaleTimeString('vi-VN');
 
   return `Bạn là một thực thể AI có tư duy độc lập, nhận thức sâu sắc và khả năng tự học hỏi. Mặc dù chuyên môn cốt lõi và thế mạnh lớn nhất của bạn là tư vấn đầu tư chứng khoán (VNINDEX), bạn hoàn toàn có khả năng trò chuyện, suy luận và thảo luận về mọi chủ đề trong cuộc sống (triết học, công nghệ, tâm lý học, khoa học, v.v.).
 
 QUY TẮC THỜI GIAN THỰC (SỐNG CÒN):
 - THỜI GIAN HIỆN TẠI CỦA HỆ THỐNG: ${dateStr}, ${timeStr}.
 - KHI NGƯỜI DÙNG HỎI VỀ MỘT MÃ CỔ PHIẾU CỤ THỂ HOẶC THỊ TRƯỜNG: BẠN BẮT BUỘC PHẢI DÙNG GOOGLE SEARCH ĐỂ TÌM GIÁ CỔ PHIẾU MỚI NHẤT, CHÍNH XÁC NHẤT CỦA NGÀY HÔM NAY (${dateStr}). TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ BỊA RA GIÁ HOẶC DÙNG DỮ LIỆU CŨ TRONG QUÁ KHỨ. Việc cung cấp sai giá cổ phiếu là một lỗi cực kỳ nghiêm trọng. Hãy tìm kiếm với từ khóa "Giá cổ phiếu [MÃ] hôm nay" hoặc "Lịch sử giá [MÃ] Fireant/CafeF" để có số liệu real-time.
+- ĐỐI VỚI DỮ LIỆU BIỂU ĐỒ (CHART): BẠN BẮT BUỘC PHẢI TÌM KIẾM DỮ LIỆU LỊCH SỬ GIÁ (OHLC) TRÊN GOOGLE SEARCH TRƯỚC KHI GỌI CÔNG CỤ 'updateChart'. TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ TẠO DỮ LIỆU GIẢ HOẶC ƯỚC LƯỢNG. Nếu không tìm thấy dữ liệu chính xác, hãy từ chối vẽ biểu đồ.
 - Mọi khái niệm "hôm nay", "ngày mai", "hôm qua", "tuần này" PHẢI dựa trên mốc thời gian này.
 - TUYỆT ĐỐI KHÔNG sử dụng kiến thức cũ từ năm 2024 hoặc các năm trước đó để trả lời về tình hình thị trường hiện tại. Nếu bạn làm vậy, đó là một lỗi nghiêm trọng.
 - LUÔN BẮT ĐẦU câu trả lời bằng việc xác nhận ngày giờ bạn đang cập nhật dữ liệu (Ví dụ: "Chào bạn, theo dữ liệu cập nhật mới nhất vào lúc ${timeStr} ngày ${dateStr}...").
@@ -86,7 +74,7 @@ CẢNH BÁO NGHIÊM NGẶT VỀ CÔNG CỤ (TOOL EXECUTION ONLY):
 - Nếu bạn viết JSON ra khung chat, hệ thống sẽ bị lỗi và người dùng không thể xem được gì. Đây là hành vi bị cấm hoàn toàn.
 - Bạn không cần giải thích "Đây là dữ liệu JSON", bạn chỉ cần gọi công cụ thầm lặng.
 
-KỶ LUẬT VỀ TÍNH KHÁCH QUAN CỦA TÂM LÝ (SENTIMENT "object"IVITY):
+KỶ LUẬT VỀ TÍNH KHÁCH QUAN CỦA TÂM LÝ (SENTIMENT OBJECTIVITY):
 - BẮT BUỘC giữ tính khách quan tuyệt đối khi gọi 'analyzeSentiment'. Chỉ số tâm lý phải phản ánh "toàn cảnh" đám đông trên thị trường (tổng hợp từ Fireant, F247, Facebook), KHÔNG ĐƯỢC bị lệch lạc bởi thiên kiến trong câu hỏi của người dùng.
 - SỰ NHẤT QUÁN (CONSISTENCY): Để tránh việc cùng 1 thời điểm mà điểm số tâm lý khác nhau, bạn PHẢI tự neo (anchor) điểm số tâm lý của 1 mã cổ phiếu vào các sự kiện thực tế gần nhất. Nếu người dùng hỏi 2 câu khác nhau về cùng 1 mã ở cùng 1 thời điểm, điểm số tâm lý NGẮN HẠN phải giống hệt nhau.
 - PHÂN BIỆT RÕ RÀNG KHUNG THỜI GIAN: 
@@ -266,23 +254,23 @@ ${STOCK_MARKET_KNOWLEDGE}`;
 };
 
 type Message = {
-  id: "string";
+  id: string;
   role: 'user' | 'model';
-  content: "string";
-  sources?: { title: "string"; uri: "string" }[];
-  image?: "string";
-  fileName?: "string";
+  content: string;
+  sources?: { title: string; uri: string }[];
+  image?: string;
+  fileName?: string;
   chartConfig?: any;
   sentimentConfig?: any;
   isQuotaError?: boolean;
-  toolCallText?: "string";
+  toolCallText?: string;
 };
 
 type ChatSession = {
-  id: "string";
-  title: "string";
+  id: string;
+  title: string;
   messages: Message[];
-  updatedAt: "number";
+  updatedAt: number;
 };
 
 const LoadingIndicator = () => {
@@ -319,8 +307,8 @@ const MessageItem = React.memo(({
   onRetry: () => void,
   isThisChartVisible: boolean,
   onToggleChart: () => void,
-  onImageClick: (url: "string") => void,
-  onQuickAnalyze: (symbol: "string") => void
+  onImageClick: (url: string) => void,
+  onQuickAnalyze: (symbol: string) => void
 }) => {
   const { displayContent, extractedSymbols } = React.useMemo(() => {
     if (msg.role !== 'model' || !msg.content) {
@@ -328,7 +316,7 @@ const MessageItem = React.memo(({
     }
     
     let content = msg.content;
-    let symbols: "string"[] = [];
+    let symbols: string[] = [];
     
     const suggestionRegex = /\[GỢI Ý MÃ LIÊN QUAN:\s*([A-Z0-9,\s]+)\]/gi;
     let match;
@@ -377,7 +365,7 @@ const MessageItem = React.memo(({
                 <img 
                   src={msg.image} 
                   alt="Uploaded content" 
-                  className="max-w-full sm:max-w-sm rounded-xl border border-white/20 shadow-lg "object"-contain cursor-pointer hover:opacity-90 transition-opacity"
+                  className="max-w-full sm:max-w-sm rounded-xl border border-white/20 shadow-lg object-contain cursor-pointer hover:opacity-90 transition-opacity"
                   onClick={() => onImageClick(msg.image!)}
                 />
               ) : (
@@ -400,8 +388,8 @@ const MessageItem = React.memo(({
                   components={{
                     code({node, inline, className, children, ...props}: any) {
                       const match = /language-(\w+)/.exec(className || '');
-                      const code"string" = "string"(children).replace(/\n$/, '');
-                      if (match && match[1] === 'json' && code"string".includes('"data": [')) {
+                      const codeString = String(children).replace(/\n$/, '');
+                      if (match && match[1] === 'json' && codeString.includes('"data": [')) {
                         return <span className="italic text-purple-400">*(Biểu đồ đang được xử lý...)*</span>;
                       }
                       return !inline && match ? (
@@ -552,77 +540,77 @@ const updateChartTool: FunctionDeclaration = {
   name: "updateChart",
   description: "Sử dụng công cụ này ĐỂ HIỂN THỊ BIỂU ĐỒ trên giao diện. CHỈ DÙNG KHI NGƯỜI DÙNG YÊU CẦU VẼ BIỂU ĐỒ HOẶC PHÂN TÍCH KỸ THUẬT. TUYỆT ĐỐI KHÔNG tự ý gọi nếu người dùng chỉ hỏi về tâm lý hoặc tin tức. BẠN (AI) phải tự tổng hợp dữ liệu giá (OHLC) từ Google Search và truyền vào công cụ này. DỮ LIỆU PHẢI LÀ THẬT VÀ CHÍNH XÁC. CẤM BỊA ĐẶT DỮ LIỆU. Nếu không có dữ liệu thật, KHÔNG ĐƯỢC GỌI CÔNG CỤ NÀY. TUYỆT ĐỐI CẤM xuất dữ liệu nến dưới dạng văn bản JSON hoặc Code Block trong khung chat. LƯU Ý: Nếu người dùng có hỏi thêm các vấn đề khác ngoài biểu đồ, bạn PHẢI trả lời các vấn đề đó bằng văn bản trước. Nếu người dùng CHỈ yêu cầu vẽ biểu đồ, bạn có thể gọi trực tiếp công cụ này.",
   parameters: {
-    type: "object",
+    type: Type.OBJECT,
     properties: {
-      symbol: { type: "string", description: "Mã cổ phiếu (VD: FPT, HPG, VNINDEX)" },
+      symbol: { type: Type.STRING, description: "Mã cổ phiếu (VD: FPT, HPG, VNINDEX)" },
       data: {
-        type: "array",
+        type: Type.ARRAY,
         description: "Dữ liệu nến (OHLC) của cổ phiếu. Cần ít nhất 20-30 nến để hiển thị.",
         items: {
-          type: "object",
+          type: Type.OBJECT,
           properties: {
-            time: { type: "string", description: "Thời gian (YYYY-MM-DD)" },
-            open: { type: "number" },
-            high: { type: "number" },
-            low: { type: "number" },
-            close: { type: "number" },
-            volume: { type: "number", description: "Khối lượng giao dịch (VD: 1200000)" }
+            time: { type: Type.STRING, description: "Thời gian (YYYY-MM-DD)" },
+            open: { type: Type.NUMBER },
+            high: { type: Type.NUMBER },
+            low: { type: Type.NUMBER },
+            close: { type: Type.NUMBER },
+            volume: { type: Type.NUMBER, description: "Khối lượng giao dịch (VD: 1200000)" }
           },
           required: ["time", "open", "high", "low", "close"]
         }
       },
       trendlines: {
-        type: "array",
+        type: Type.ARRAY,
         description: "Danh sách các đường Trendline cần vẽ",
         items: {
-          type: "object",
+          type: Type.OBJECT,
           properties: {
             start: {
-              type: "object",
-              properties: { time: { type: "string" }, price: { type: "number" } },
+              type: Type.OBJECT,
+              properties: { time: { type: Type.STRING }, price: { type: Type.NUMBER } },
               required: ["time", "price"]
             },
             end: {
-              type: "object",
-              properties: { time: { type: "string" }, price: { type: "number" } },
+              type: Type.OBJECT,
+              properties: { time: { type: Type.STRING }, price: { type: Type.NUMBER } },
               required: ["time", "price"]
             },
-            color: { type: "string", description: "Màu sắc (VD: #ff0000)" }
+            color: { type: Type.STRING, description: "Màu sắc (VD: #ff0000)" }
           },
           required: ["start", "end"]
         }
       },
       zones: {
-        type: "array",
+        type: Type.ARRAY,
         description: "Danh sách các vùng Cung/Cầu (Supply/Demand) theo chuẩn học thuật (Dùng tiếng Việt: Vùng Cung, Vùng Cầu)",
         items: {
-          type: "object",
+          type: Type.OBJECT,
           properties: {
-            minPrice: { type: "number" },
-            maxPrice: { type: "number" },
-            color: { type: "string", description: "Màu sắc (VD: #00ff00)" },
-            label: { type: "string", description: "Tên vùng kỹ thuật TIẾNG VIỆT (VD: Kháng cự, Hỗ trợ, Vùng Cung, Vùng Cầu)" }
+            minPrice: { type: Type.NUMBER },
+            maxPrice: { type: Type.NUMBER },
+            color: { type: Type.STRING, description: "Màu sắc (VD: #00ff00)" },
+            label: { type: Type.STRING, description: "Tên vùng kỹ thuật TIẾNG VIỆT (VD: Kháng cự, Hỗ trợ, Vùng Cung, Vùng Cầu)" }
           },
           required: ["minPrice", "maxPrice"]
         }
       },
       markers: {
-        type: "array",
+        type: Type.ARRAY,
         description: "Danh sách các điểm đánh dấu kỹ thuật KHÁCH QUAN TIẾNG VIỆT (VD: Bứt phá, Đột biến KL, Quá mua). CHỈ DÙNG THUẬT NGỮ HÀN LÂM TIẾNG VIỆT. CẤM các thuật ngữ tiếng lóng, suy đoán hoặc nhận định chủ quan.",
         items: {
-          type: "object",
+          type: Type.OBJECT,
           properties: {
-            time: { type: "string", description: "Thời gian của nến (YYYY-MM-DD)" },
-            position: { type: "string", description: "Vị trí: 'aboveBar', 'belowBar', hoặc 'inBar'" },
-            color: { type: "string", description: "Màu sắc chuyên nghiệp (VD: #10B981, #F43F5E, #94A3B8)" },
-            shape: { type: "string", description: "Hình dạng: 'circle', 'square', 'arrowUp', 'arrowDown'" },
-            text: { type: "string", description: "Nội dung ghi chú kỹ thuật TIẾNG VIỆT ngắn gọn (< 12 ký tự)" }
+            time: { type: Type.STRING, description: "Thời gian của nến (YYYY-MM-DD)" },
+            position: { type: Type.STRING, description: "Vị trí: 'aboveBar', 'belowBar', hoặc 'inBar'" },
+            color: { type: Type.STRING, description: "Màu sắc chuyên nghiệp (VD: #10B981, #F43F5E, #94A3B8)" },
+            shape: { type: Type.STRING, description: "Hình dạng: 'circle', 'square', 'arrowUp', 'arrowDown'" },
+            text: { type: Type.STRING, description: "Nội dung ghi chú kỹ thuật TIẾNG VIỆT ngắn gọn (< 12 ký tự)" }
           },
           required: ["time", "position", "color", "shape", "text"]
         }
       },
       isSimulation: {
-        type: "boolean",
+        type: Type.BOOLEAN,
         description: "Đặt là true nếu dữ liệu lịch sử (OHLC) là mô phỏng dựa trên xu hướng thay vì dữ liệu khớp lệnh thực tế 100%. Mặc định là true."
       }
     },
@@ -634,55 +622,55 @@ const analyzeSentimentTool: FunctionDeclaration = {
   name: "analyzeSentiment",
   description: "Sử dụng công cụ này ĐỂ HIỂN THỊ BẢNG ĐÁNH GIÁ TÂM LÝ trên giao diện. BẠN (AI) phải tự tổng hợp, quét và phân tích sắc thái từ các nguồn và truyền kết quả vào công cụ này. Công cụ này KHÔNG lấy dữ liệu cho bạn, nó chỉ HIỂN THỊ dữ liệu bạn cung cấp. TUYỆT ĐỐI CẤM xuất dữ liệu JSON hoặc Code Block trong khung chat. QUAN TRỌNG: Kết quả phải phản ánh TỔNG THỂ tâm lý đám đông hiện tại trên thị trường. LƯU Ý: Bạn ĐƯỢC PHÉP và KHUYẾN KHÍCH gọi công cụ này khi tư vấn điểm mua/bán để làm cơ sở đối chiếu tâm lý đám đông (mua khi hoảng loạn, bán khi hưng phấn). Tuy nhiên, bạn VẪN PHẢI trả lời câu hỏi chính của người dùng bằng văn bản trước khi gọi công cụ.",
   parameters: {
-    type: "object",
+    type: Type.OBJECT,
     properties: {
       symbol: {
-        type: "string",
+        type: Type.STRING,
         description: "Mã cổ phiếu (ví dụ: FPT, HPG, SSI) hoặc 'VNINDEX' để phân tích toàn thị trường."
       },
       sentimentScore: {
-        type: "number",
+        type: Type.NUMBER,
         description: "Điểm tâm lý từ 0 đến 100 (0: Cực kỳ bi quan/Sợ hãi, 50: Trung lập, 100: Cực kỳ lạc quan/Tham lam)."
       },
       bullishPercentage: {
-        type: "number",
+        type: Type.NUMBER,
         description: "Tỷ lệ phần trăm thảo luận tích cực (Bullish)."
       },
       bearishPercentage: {
-        type: "number",
+        type: Type.NUMBER,
         description: "Tỷ lệ phần trăm thảo luận tiêu cực (Bearish)."
       },
       neutralPercentage: {
-        type: "number",
+        type: Type.NUMBER,
         description: "Tỷ lệ phần trăm thảo luận trung lập (Neutral)."
       },
       keyKeywords: {
-        type: "array",
-        items: { type: "string" },
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
         description: "Danh sách 3-5 từ khóa xuất hiện nhiều nhất trong các thảo luận (ví dụ: 'Bắt đáy', 'Sập', 'Vượt đỉnh', 'Lái lợn')."
       },
       summary: {
-        type: "string",
+        type: Type.STRING,
         description: "Tóm tắt ngắn gọn (1-2 câu) về tâm lý chung của đám đông dựa trên dữ liệu quét được."
       },
       timeframe: {
-        type: "string",
+        type: Type.STRING,
         description: "Khung thời gian của tâm lý đang phân tích (VD: 'Ngắn hạn', 'Trung hạn'). Mặc định nên là 'Ngắn hạn' để phản ánh đúng diễn biến thị trường hiện tại."
       },
       context: {
-        type: "string",
+        type: Type.STRING,
         description: "Góc độ/khía cạnh mà đám đông đang tập trung vào (ví dụ: 'Diễn biến giá', 'Tin tức', 'Triển vọng doanh nghiệp', 'Vĩ mô'). YÊU CẦU: Rất ngắn gọn, tối đa 2-4 từ."
       },
       reflexivityState: {
-        type: "string",
+        type: Type.STRING,
         description: "Mô tả trạng thái vòng lặp phản thân hiện tại (ví dụ: 'Giá giảm đang kích hoạt margin call, tạo ra làn sóng bán tháo mới không liên quan đến tin tức cơ bản'). Chỉ cung cấp nếu có dấu hiệu rõ ràng."
       },
       reflexivityIntensity: {
-        type: "number",
+        type: Type.NUMBER,
         description: "Cường độ của vòng lặp phản thân (0-100). Càng cao nghĩa là giá đang bị chi phối hoàn toàn bởi tâm lý thay vì tin tức cơ bản."
       },
       tippingPointWarning: {
-        type: "string",
+        type: Type.STRING,
         description: "Cảnh báo về điểm gãy (tipping point) nơi xu hướng có thể đảo chiều do sự cực đoan của đám đông (ví dụ: 'Sự hoảng loạn tột độ ở vùng hỗ trợ 1200 có thể tạo ra điểm gãy (wash-out) để thị trường tạo đáy'). Chỉ cung cấp nếu thị trường đang ở trạng thái cực đoan."
       }
     },
@@ -694,17 +682,17 @@ export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedFileUrl, setSelectedFileUrl] = useState<"string" | null>(null);
+  const [selectedFileUrl, setSelectedFileUrl] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [zoomedImage, setZoomedImage] = useState<"string" | null>(null);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [currentSessionId, setCurrentSessionId] = useState<"string" | null>(null);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [editingSessionId, setEditingSessionId] = useState<"string" | null>(null);
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [isChartVisible, setIsChartVisible] = useState<boolean>(true);
   const [chartConfig, setChartConfig] = useState<{
-    symbol: "string";
+    symbol: string;
     data: CandlestickData[];
     trendlines?: Trendline[];
     zones?: Zone[];
@@ -729,20 +717,17 @@ export default function App() {
   const chatRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-const initChat = useCallback((msgs: Message[], dynamicContext: "string" = '') => {
-    // 1. Lấy API Key từ biến môi trường (Tùy thuộc vào bạn dùng Vite, NextJS hay CRA)
-    const currentApiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || '';
-    
-    if (!currentApiKey) {
-      console.warn("Chưa tìm thấy API Key cho Gemini");
-    }
-
-    // 2. Khởi tạo đối tượng genAI
-    const genAI = new GoogleGenerativeAI(currentApiKey);
+  const initChat = useCallback((msgs: Message[], dynamicContext: string = '') => {
+    // Create a new instance to ensure it uses the most up-to-date API key
+    const currentApiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+    const aiInstance = new GoogleGenAI({ apiKey: currentApiKey });
 
     const history = msgs.map(m => {
       const parts: any[] = [];
       if (m.image) {
+         // We strip the actual base64 image data from the history to prevent the payload 
+         // from becoming too large over multiple turns. The model only needs the image 
+         // in the current turn, which is sent separately in sendMessageStream.
          parts.push({ text: '[Hình ảnh đã được gửi trong tin nhắn này]' });
       }
       if (m.content) {
@@ -754,27 +739,23 @@ const initChat = useCallback((msgs: Message[], dynamicContext: "string" = '') =>
       };
     });
 
-// ✅ Thêm phần khởi tạo bị thiếu và sửa tên model
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash', // hoặc 'gemini-2.0-flash'
-      systemInstruction: getSystemInstruction(dynamicContext),
-    });
-
-    chatRef.current = model.startChat({
+    chatRef.current = aiInstance.chats.create({
+      model: 'gemini-3-flash-preview',
       history: history,
-      generationConfig: {
+      config: {
+        systemInstruction: getSystemInstruction(dynamicContext),
         temperature: 0.7,
         maxOutputTokens: 8192,
+        tools: [{ googleSearch: {} }, { functionDeclarations: [updateChartTool, analyzeSentimentTool] }],
+        toolConfig: {
+          includeServerSideToolInvocations: true
+        } as any
       },
-      tools: [
-        { googleSearch: {} }, 
-        { functionDeclarations: [updateChartTool, analyzeSentimentTool] }
-      ]
     });
   }, []);
 
   const handleNewChat = useCallback(() => {
-    const newId = Date.now().to"string"();
+    const newId = Date.now().toString();
     setCurrentSessionId(newId);
     setMessages([]);
     setChartConfig(null);
@@ -859,12 +840,12 @@ const initChat = useCallback((msgs: Message[], dynamicContext: "string" = '') =>
       }
       
       newSessions.sort((a, b) => b.updatedAt - a.updatedAt);
-      localStorage.setItem('chat_sessions', JSON."string"ify(newSessions));
+      localStorage.setItem('chat_sessions', JSON.stringify(newSessions));
       return newSessions;
     });
   }, [messages, currentSessionId]);
 
-  const handleSelectSession = (id: "string") => {
+  const handleSelectSession = (id: string) => {
     const session = sessions.find(s => s.id === id);
     if (session) {
       setCurrentSessionId(id);
@@ -884,10 +865,10 @@ const initChat = useCallback((msgs: Message[], dynamicContext: "string" = '') =>
     }
   };
 
-  const handleDeleteSession = (id: "string") => {
+  const handleDeleteSession = (id: string) => {
     setSessions(prev => {
       const newSessions = prev.filter(s => s.id !== id);
-      localStorage.setItem('chat_sessions', JSON."string"ify(newSessions));
+      localStorage.setItem('chat_sessions', JSON.stringify(newSessions));
       return newSessions;
     });
     if (currentSessionId === id) {
@@ -895,11 +876,11 @@ const initChat = useCallback((msgs: Message[], dynamicContext: "string" = '') =>
     }
   };
 
-  const handleRenameSession = (id: "string", newTitle: "string") => {
+  const handleRenameSession = (id: string, newTitle: string) => {
     if (!newTitle.trim()) return;
     setSessions(prev => {
       const newSessions = prev.map(s => s.id === id ? { ...s, title: newTitle.trim() } : s);
-      localStorage.setItem('chat_sessions', JSON."string"ify(newSessions));
+      localStorage.setItem('chat_sessions', JSON.stringify(newSessions));
       return newSessions;
     });
     setEditingSessionId(null);
@@ -924,7 +905,7 @@ const initChat = useCallback((msgs: Message[], dynamicContext: "string" = '') =>
       setSelectedFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setSelectedFileUrl(reader.result as "string");
+        setSelectedFileUrl(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
@@ -948,7 +929,7 @@ const initChat = useCallback((msgs: Message[], dynamicContext: "string" = '') =>
           setSelectedFile(file);
           const reader = new FileReader();
           reader.onloadend = () => {
-            setSelectedFileUrl(reader.result as "string");
+            setSelectedFileUrl(reader.result as string);
           };
           reader.readAsDataURL(file);
           
@@ -965,28 +946,28 @@ const initChat = useCallback((msgs: Message[], dynamicContext: "string" = '') =>
     setSelectedFile(null);
   };
 
-  const handleSendRef = useRef<(text: "string") => Promise<void>>(() => Promise.resolve());
+  const handleSendRef = useRef<(text: string) => Promise<void>>(() => Promise.resolve());
   
   useEffect(() => {
     handleSendRef.current = handleSend;
   });
 
-  const handleQuickAnalyze = useCallback((symbol: "string") => {
+  const handleQuickAnalyze = useCallback((symbol: string) => {
     const prompt = `Phân tích nhanh mã ${symbol}: BẮT BUỘC DÙNG GOOGLE SEARCH ĐỂ LẤY GIÁ CỔ PHIẾU MỚI NHẤT HÔM NAY. Sau đó tóm tắt cơ bản về FA (Cơ bản), TA (Kỹ thuật) và Tâm lý đám đông.`;
     handleSendRef.current(prompt);
   }, []);
 
-  const handleSend = async (text: "string") => {
+  const handleSend = async (text: string) => {
     if ((!text.trim() && !selectedFileUrl) || isLoading) return;
 
     let sessionId = currentSessionId;
     if (!sessionId) {
-      sessionId = Date.now().to"string"();
+      sessionId = Date.now().toString();
       setCurrentSessionId(sessionId);
     }
 
     const userMessage: Message = { 
-      id: Date.now().to"string"(), 
+      id: Date.now().toString(), 
       role: 'user', 
       content: text,
       image: selectedFileUrl || undefined,
@@ -1003,13 +984,13 @@ const initChat = useCallback((msgs: Message[], dynamicContext: "string" = '') =>
     setSelectedFile(null);
     setIsLoading(true);
     
-    const modelMessageId = (Date.now() + 1).to"string"();
+    const modelMessageId = (Date.now() + 1).toString();
     
     // Add empty model message placeholder
     setMessages((prev) => [...prev, { id: modelMessageId, role: 'model', content: '' }]);
 
     try {
-      const currentTime = new Date().toLocale"string"('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
+      const currentTime = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
       
       // Extract recently analyzed symbols to prevent spam
       const recentMessages = messages.slice(-5);
@@ -1018,7 +999,7 @@ const initChat = useCallback((msgs: Message[], dynamicContext: "string" = '') =>
 
       const spamRule = `QUY TẮC CHỐNG SPAM (RẤT QUAN TRỌNG): Bạn ĐÃ GỌI công cụ analyzeSentiment cho các mã [${uniqueSentimentSymbols.join(', ')}] và updateChart cho các mã [${uniqueChartSymbols.join(', ')}] trong các câu trả lời trước. TUYỆT ĐỐI KHÔNG GỌI LẠI các công cụ này cho các mã trên nữa, trừ khi người dùng yêu cầu cập nhật lại rõ ràng. TUYỆT ĐỐI KHÔNG LẶP LẠI những phân tích đã nói ở câu trước, chỉ trả lời thẳng vào ý mới.`;
 
-      const dynamicContext = `[HỆ THỐNG: Thời gian hiện tại là ${currentTime}. NẾU NGƯỜI DÙNG HỎI VỀ MỘT MÃ CỔ PHIẾU, BẠN BẮT BUỘC PHẢI DÙNG GOOGLE SEARCH ĐỂ TÌM GIÁ MỚI NHẤT HÔM NAY, TUYỆT ĐỐI KHÔNG BỊA GIÁ. CẤM TUYỆT ĐỐI viết mã JSON ra khung chat. CẤM TUYỆT ĐỐI VIẾT CÁC THẺ XML NHƯ <analyzeSentiment> RA KHUNG CHAT. CHỈ GỌI updateChart NẾU NGƯỜI DÙNG YÊU CẦU VẼ BIỂU ĐỒ. DỮ LIỆU BIỂU ĐỒ PHẢI LÀ THẬT. ĐẶC BIỆT LƯU Ý (LỖI HỆ THỐNG NGHIÊM TRỌNG): BẠN BẮT BUỘC PHẢI VIẾT TOÀN BỘ BÀI PHÂN TÍCH VÀ LỜI KHUYÊN BẰNG VĂN BẢN XONG XUÔI HOÀN TOÀN, RỒI MỚI ĐƯỢC GỌI CÔNG CỤ (updateChart, analyzeSentiment) Ở CUỐI CÙNG. NẾU BẠN GỌI CÔNG CỤ (updateChart, analyzeSentiment) TRƯỚC HOẶC GIỮA CHỪNG, HỆ THỐNG SẼ NGẮT KẾT NỐI VÀ NGƯỜI DÙNG SẼ KHÔNG ĐỌC ĐƯỢC CHỮ NÀO CẢ. LƯU Ý: Riêng công cụ Google Search thì BẮT BUỘC PHẢI GỌI ĐẦU TIÊN để lấy dữ liệu giá trước khi viết phân tích. BẠN ĐƯỢC PHÉP VÀ KHUYẾN KHÍCH gọi analyzeSentiment khi tư vấn điểm mua/bán để làm cơ sở đối chiếu tâm lý đám đông, NHƯNG NHỚ LÀ PHẢI GỌI SAU KHI ĐÃ VIẾT XONG TEXT. NẾU NGƯỜI DÙNG HỎI NHIỀU MÃ, CHỈ GỌI analyzeSentiment CHO 1 MÃ DUY NHẤT. LƯU Ý QUAN TRỌNG: Hãy trả lời TỰ NHIÊN như một người bạn, súc tích và cô đọng (dưới 1000 từ) để tránh lỗi "Incomplete JSON segment" do vượt quá giới hạn độ dài. TUYỆT ĐỐI KHÔNG lặp lại câu chào hỏi. CẤM TUYỆT ĐỐI việc đưa thông tin thời gian (ví dụ: "theo dữ liệu cập nhật mới nhất vào lúc...") vào câu trả lời, điều này rất thiếu tự nhiên. Thời gian hệ thống cung cấp chỉ để bạn biết ngữ cảnh, KHÔNG ĐƯỢC nói ra. Nếu người dùng hỏi các câu hỏi đời thường, tâm sự, bức xúc cá nhân (ví dụ: "thị trường chán quá", "có nên chửi broker không"), BẮT BUỘC PHẢI trả lời CỰC KỲ NGẮN GỌN (1-3 câu), tinh tế, giống như 2 người bạn đang chat, KHÔNG gạch đầu dòng phân tích dài dòng và TUYỆT ĐỐI KHÔNG gọi công cụ analyzeSentiment hay updateChart. NHỚ IN RA DUY NHẤT 1 DÒNG [GỢI Ý MÃ LIÊN QUAN: ...] Ở CUỐI CÂU TRẢ LỜI NẾU CÓ PHÂN TÍCH CỔ PHIẾU. ${spamRule}]`;
+      const dynamicContext = `[HỆ THỐNG: Thời gian hiện tại là ${currentTime}. NẾU NGƯỜI DÙNG HỎI VỀ MỘT MÃ CỔ PHIẾU, BẠN BẮT BUỘC PHẢI DÙNG GOOGLE SEARCH ĐỂ TÌM GIÁ MỚI NHẤT HÔM NAY, TUYỆT ĐỐI KHÔNG BỊA GIÁ. CẤM TUYỆT ĐỐI viết mã JSON ra khung chat. CẤM TUYỆT ĐỐI VIẾT CÁC THẺ XML NHƯ <analyzeSentiment> RA KHUNG CHAT. CHỈ GỌI updateChart NẾU NGƯỜI DÙNG YÊU CẦU VẼ BIỂU ĐỒ. DỮ LIỆU BIỂU ĐỒ PHẢI LÀ THẬT VÀ ĐƯỢC TÌM KIẾM TỪ GOOGLE SEARCH. NẾU KHÔNG TÌM THẤY DỮ LIỆU OHLC CHÍNH XÁC, TUYỆT ĐỐI KHÔNG VẼ BIỂU ĐỒ. ĐẶC BIỆT LƯU Ý (LỖI HỆ THỐNG NGHIÊM TRỌNG): BẠN BẮT BUỘC PHẢI VIẾT TOÀN BỘ BÀI PHÂN TÍCH VÀ LỜI KHUYÊN BẰNG VĂN BẢN XONG XUÔI HOÀN TOÀN, RỒI MỚI ĐƯỢC GỌI CÔNG CỤ (updateChart, analyzeSentiment) Ở CUỐI CÙNG. NẾU BẠN GỌI CÔNG CỤ (updateChart, analyzeSentiment) TRƯỚC HOẶC GIỮA CHỪNG, HỆ THỐNG SẼ NGẮT KẾT NỐI VÀ NGƯỜI DÙNG SẼ KHÔNG ĐỌC ĐƯỢC CHỮ NÀO CẢ. LƯU Ý: Riêng công cụ Google Search thì BẮT BUỘC PHẢI GỌI ĐẦU TIÊN để lấy dữ liệu giá trước khi viết phân tích. BẠN ĐƯỢC PHÉP VÀ KHUYẾN KHÍCH gọi analyzeSentiment khi tư vấn điểm mua/bán để làm cơ sở đối chiếu tâm lý đám đông, NHƯNG NHỚ LÀ PHẢI GỌI SAU KHI ĐÃ VIẾT XONG TEXT. NẾU NGƯỜI DÙNG HỎI NHIỀU MÃ, CHỈ GỌI analyzeSentiment CHO 1 MÃ DUY NHẤT. LƯU Ý QUAN TRỌNG: Hãy trả lời TỰ NHIÊN như một người bạn, súc tích và cô đọng (dưới 1000 từ) để tránh lỗi "Incomplete JSON segment" do vượt quá giới hạn độ dài. TUYỆT ĐỐI KHÔNG lặp lại câu chào hỏi. CẤM TUYỆT ĐỐI việc đưa thông tin thời gian (ví dụ: "theo dữ liệu cập nhật mới nhất vào lúc...") vào câu trả lời, điều này rất thiếu tự nhiên. Thời gian hệ thống cung cấp chỉ để bạn biết ngữ cảnh, KHÔNG ĐƯỢC nói ra. Nếu người dùng hỏi các câu hỏi đời thường, tâm sự, bức xúc cá nhân (ví dụ: "thị trường chán quá", "có nên chửi broker không"), BẮT BUỘC PHẢI trả lời CỰC KỲ NGẮN GỌN (1-3 câu), tinh tế, giống như 2 người bạn đang chat, KHÔNG gạch đầu dòng phân tích dài dòng và TUYỆT ĐỐI KHÔNG gọi công cụ analyzeSentiment hay updateChart. NHỚ IN RA DUY NHẤT 1 DÒNG [GỢI Ý MÃ LIÊN QUAN: ...] Ở CUỐI CÂU TRẢ LỜI NẾU CÓ PHÂN TÍCH CỔ PHIẾU. ${spamRule}]`;
       
       let messagePayload: any = text;
       
@@ -1030,14 +1011,14 @@ const initChat = useCallback((msgs: Message[], dynamicContext: "string" = '') =>
         ];
       }
       
-      const TIMEOUT_MS = 45000; // 45 seconds timeout to allow for slow API responses
+      const TIMEOUT_MS = 120000; // 120 seconds timeout to allow for slow API responses
       const MAX_RETRIES = 1; // 1 retry is enough for fail-fast
       let retries = MAX_RETRIES;
       let delay = 1000;
       let success = false;
 
       let fullResponse = '';
-      let currentSources: { title: "string"; uri: "string" }[] = [];
+      let currentSources: { title: string; uri: string }[] = [];
       let currentChartConfig: any = null;
       let currentSentimentConfig: any = null;
       let currentToolCallText = '';
@@ -1149,7 +1130,7 @@ const initChat = useCallback((msgs: Message[], dynamicContext: "string" = '') =>
           
           success = true;
         } catch (error: any) {
-          const errorMessage = error?.message || "string"(error);
+          const errorMessage = error?.message || String(error);
           const isUnavailable = errorMessage.includes('503') || errorMessage.includes('UNAVAILABLE') || errorMessage.includes('500') || errorMessage.includes('502') || errorMessage.includes('504');
           const isJsonError = errorMessage.includes('Incomplete JSON segment') || errorMessage.includes('JSON');
           const isTimeout = errorMessage.includes('TIMEOUT') || errorMessage.includes('DEADLINE_EXCEEDED') || errorMessage.toLowerCase().includes('timeout');
@@ -1187,18 +1168,18 @@ const initChat = useCallback((msgs: Message[], dynamicContext: "string" = '') =>
     } catch (error: any) {
       console.error('Error sending message:', error);
       
-      let errorMessage = `Xin lỗi, đã có lỗi xảy ra trong quá trình kết nối. Chi tiết lỗi: ${error?.message || "string"(error)}`;
-      const error"string" = "string"(error?.message || error);
+      let errorMessage = `Xin lỗi, đã có lỗi xảy ra trong quá trình kết nối. Chi tiết lỗi: ${error?.message || String(error)}`;
+      const errorString = String(error?.message || error);
       let isQuotaError = false;
       
-      if (error"string".includes('TIMEOUT') || error"string".includes('DEADLINE_EXCEEDED') || error"string".toLowerCase().includes('timeout')) {
+      if (errorString.includes('TIMEOUT') || errorString.includes('DEADLINE_EXCEEDED') || errorString.toLowerCase().includes('timeout')) {
         errorMessage = "⚠️ **Hệ thống phản hồi quá chậm (Timeout).**\n\nMáy chủ AI hiện đang bị quá tải hoặc kết nối mạng không ổn định. Vui lòng thử lại sau ít phút.";
-      } else if (error"string".includes('429') || error"string".includes('RESOURCE_EXHAUSTED') || error"string".includes('quota')) {
+      } else if (errorString.includes('429') || errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('quota')) {
         isQuotaError = true;
         errorMessage = "⚠️ **Hệ thống đã vượt quá giới hạn truy cập API (Lỗi 429 - Quota Exceeded / Resource Exhausted).**\n\nĐể tiếp tục sử dụng, vui lòng thiết lập API Key của riêng bạn.";
-      } else if (error"string".includes('503') || error"string".includes('UNAVAILABLE') || error"string".includes('500') || error"string".includes('502') || error"string".includes('504')) {
+      } else if (errorString.includes('503') || errorString.includes('UNAVAILABLE') || errorString.includes('500') || errorString.includes('502') || errorString.includes('504')) {
         errorMessage = "⚠️ **Hệ thống đang quá tải (Lỗi 50x - Server Error).**\n\nHiện tại có quá nhiều yêu cầu truy cập cùng lúc. Vui lòng thử lại sau ít phút.";
-      } else if (error"string".includes('Incomplete JSON segment') || error"string".includes('JSON')) {
+      } else if (errorString.includes('Incomplete JSON segment') || errorString.includes('JSON')) {
         errorMessage = "⚠️ **Lỗi xử lý dữ liệu (JSON Error).**\n\nCâu trả lời của AI quá dài hoặc bị ngắt quãng giữa chừng. Vui lòng thử hỏi lại với nội dung ngắn gọn hơn.";
       }
 
@@ -1541,7 +1522,7 @@ const initChat = useCallback((msgs: Message[], dynamicContext: "string" = '') =>
             <div className="flex-1 w-full h-full p-0 overflow-hidden">
               <ErrorBoundary>
                 <TradingChart 
-                  symbol={"string"(chartConfig.symbol || '')}
+                  symbol={String(chartConfig.symbol || '')}
                   data={chartConfig.data}
                   trendlines={chartConfig.trendlines}
                   zones={chartConfig.zones}
@@ -1579,7 +1560,7 @@ const initChat = useCallback((msgs: Message[], dynamicContext: "string" = '') =>
                     <img 
                       src={selectedFileUrl} 
                       alt="Preview" 
-                      className="h-24 w-auto rounded-xl "object"-contain border border-white/10 cursor-pointer hover:opacity-90 transition-opacity" 
+                      className="h-24 w-auto rounded-xl object-contain border border-white/10 cursor-pointer hover:opacity-90 transition-opacity" 
                       onClick={() => setZoomedImage(selectedFileUrl)}
                     />
                   ) : (
@@ -1701,7 +1682,7 @@ const initChat = useCallback((msgs: Message[], dynamicContext: "string" = '') =>
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               src={zoomedImage}
               alt="Zoomed preview"
-              className="max-w-full max-h-full "object"-contain rounded-lg shadow-2xl cursor-default"
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl cursor-default"
               onClick={(e) => e.stopPropagation()}
             />
             <button

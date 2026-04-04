@@ -5,18 +5,18 @@ import { cn } from '../App';
 
 interface SentimentDashboardProps {
   config: {
-    symbol: "string";
-    sentimentScore: "number";
-    bullishPercentage: "number";
-    bearishPercentage: "number";
-    neutralPercentage: "number";
-    keyKeywords: "string"[];
-    summary: "string";
-    timeframe?: "string";
-    context?: "string";
-    reflexivityState?: "string";
-    reflexivityIntensity?: "number"; // 0-100
-    tippingPointWarning?: "string";
+    symbol: string;
+    sentimentScore: number;
+    bullishPercentage: number;
+    bearishPercentage: number;
+    neutralPercentage: number;
+    keyKeywords: string[];
+    summary: string;
+    timeframe?: string;
+    context?: string;
+    reflexivityState?: string;
+    reflexivityIntensity?: number; // 0-100
+    tippingPointWarning?: string;
   };
 }
 
@@ -36,13 +36,13 @@ export const SentimentDashboard: React.FC<SentimentDashboardProps> = ({ config }
     tippingPointWarning
   } = config;
 
-  const getSentimentColor = (score: "number") => {
+  const getSentimentColor = (score: number) => {
     if (score >= 60) return 'text-emerald-400';
     if (score <= 40) return 'text-rose-400';
     return 'text-slate-400';
   };
 
-  const getSentimentLabel = (score: "number") => {
+  const getSentimentLabel = (score: number) => {
     if (score >= 80) return 'Cực kỳ Lạc quan (Tham lam)';
     if (score >= 60) return 'Lạc quan';
     if (score <= 20) return 'Cực kỳ Bi quan (Sợ hãi)';
@@ -50,7 +50,7 @@ export const SentimentDashboard: React.FC<SentimentDashboardProps> = ({ config }
     return 'Trung lập';
   };
 
-  const getSentimentBg = (score: "number") => {
+  const getSentimentBg = (score: number) => {
     if (score >= 60) return 'from-emerald-500/20 to-emerald-500/5 border-emerald-500/30';
     if (score <= 40) return 'from-rose-500/20 to-rose-500/5 border-rose-500/30';
     return 'from-slate-500/20 to-slate-500/5 border-slate-500/30';
