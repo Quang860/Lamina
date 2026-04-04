@@ -23,7 +23,7 @@ async function sendMessageToAI(message: string) {
 export default function TestAI() {
   return (
     <div style={{ padding: 20 }}>
-      <h2>Test AI</h2>
+      <h2>Test Quang</h2>
 
       <button
         onClick={async () => {
