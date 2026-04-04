@@ -11,6 +11,7 @@ import { TradingChart, Trendline, Zone } from './components/TradingChart';
 import { SentimentDashboard } from './components/SentimentDashboard';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CandlestickData } from 'lightweight-charts';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 async function sendMessageToAI(message) {
   const res = await fetch("/api/chat", {
@@ -728,16 +729,20 @@ export default function App() {
   const chatRef = useRef<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const initChat = useCallback((msgs: Message[], dynamicContext: string = '') => {
-    // Create a new instance to ensure it uses the most up-to-date API key
-    const currentApiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+const initChat = useCallback((msgs: Message[], dynamicContext: string = '') => {
+    // 1. Lấy API Key từ biến môi trường (Tùy thuộc vào bạn dùng Vite, NextJS hay CRA)
+    const currentApiKey = process.env.API_KEY || process.env.GEMINI_API_KEY || '';
+    
+    if (!currentApiKey) {
+      console.warn("Chưa tìm thấy API Key cho Gemini");
+    }
+
+    // 2. Khởi tạo đối tượng genAI
+    const genAI = new GoogleGenerativeAI(currentApiKey);
 
     const history = msgs.map(m => {
       const parts: any[] = [];
       if (m.image) {
-         // We strip the actual base64 image data from the history to prevent the payload 
-         // from becoming too large over multiple turns. The model only needs the image 
-         // in the current turn, which is sent separately in sendMessageStream.
          parts.push({ text: '[Hình ảnh đã được gửi trong tin nhắn này]' });
       }
       if (m.content) {
@@ -749,17 +754,22 @@ export default function App() {
       };
     });
 
-      model: 'gemini-3-flash-preview',
+// ✅ Thêm phần khởi tạo bị thiếu và sửa tên model
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-1.5-flash', // hoặc 'gemini-2.0-flash'
+      systemInstruction: getSystemInstruction(dynamicContext),
+    });
+
+    chatRef.current = model.startChat({
       history: history,
-      config: {
-        systemInstruction: getSystemInstruction(dynamicContext),
+      generationConfig: {
         temperature: 0.7,
         maxOutputTokens: 8192,
-        tools: [{ googleSearch: {} }, { functionDeclarations: [updateChartTool, analyzeSentimentTool] }],
-        toolConfig: {
-          includeServerSideToolInvocations: true
-        } as any
       },
+      tools: [
+        { googleSearch: {} }, 
+        { functionDeclarations: [updateChartTool, analyzeSentimentTool] }
+      ]
     });
   }, []);
 
