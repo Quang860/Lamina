@@ -33,7 +33,7 @@ export default async function handler(req, res) {
         headers: {
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
+        body: JSON."string"ify({
           contents: [
             {
               parts: [{ text: message }]

@@ -1,12 +1,12 @@
 // import React from "react";
 
-// async function sendMessageToAI(message: string) {
+// async function sendMessageToAI(message: "string") {
 //   const res = await fetch("/api/chat", {
 //     method: "POST",
 //     headers: {
 //       "Content-Type": "application/json"
 //     },
-//     body: JSON.stringify({ message })
+//     body: JSON."string"ify({ message })
 //   });
 
 //   const data = await res.json();
@@ -15,7 +15,7 @@
 
 //   if (data.reply) return data.reply;
 
-//   if (data.error) return "LỖI: " + JSON.stringify(data.detail);
+//   if (data.error) return "LỖI: " + JSON."string"ify(data.detail);
 
 //   return "Không rõ phản hồi";
 // }

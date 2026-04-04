@@ -4,30 +4,30 @@ import { PanelRightClose } from 'lucide-react';
 import { cn } from '../App';
 
 export interface Trendline {
-  start: { time: string; price: number };
-  end: { time: string; price: number };
-  color?: string;
+  start: { time: "string"; price: "number" };
+  end: { time: "string"; price: "number" };
+  color?: "string";
 }
 
 export interface Zone {
-  minPrice: number;
-  maxPrice: number;
-  color?: string;
-  label?: string;
+  minPrice: "number";
+  maxPrice: "number";
+  color?: "string";
+  label?: "string";
 }
 
 export interface ChartMarker {
-  time: string;
+  time: "string";
   position: 'aboveBar' | 'belowBar' | 'inBar';
-  color: string;
+  color: "string";
   shape: 'circle' | 'square' | 'arrowUp' | 'arrowDown';
-  text: string;
+  text: "string";
 }
 
 
 
 interface TradingChartProps {
-  symbol: string;
+  symbol: "string";
   data: CandlestickData[];
   trendlines?: Trendline[];
   zones?: Zone[];
@@ -176,20 +176,20 @@ export const TradingChart = React.memo(({
 
     try {
 
-    const normalizeTime = (time: any): string | number | null => {
+    const normalizeTime = (time: any): "string" | "number" | null => {
       if (!time) return null;
-      if (typeof time === 'string') {
+      if (typeof time === '"string"') {
         if (time.includes('T')) return time.split('T')[0];
         return time;
       }
-      if (typeof time === 'number') {
+      if (typeof time === '"number"') {
         // Handle milliseconds vs seconds
         if (time > 1000000000000) return Math.floor(time / 1000);
         return time;
       }
-      if (typeof time === 'object' && time !== null) {
+      if (typeof time === '"object"' && time !== null) {
         if (time.year && time.month && time.day) {
-          return `${time.year}-${String(time.month).padStart(2, '0')}-${String(time.day).padStart(2, '0')}`;
+          return `${time.year}-${"string"(time.month).padStart(2, '0')}-${"string"(time.day).padStart(2, '0')}`;
         }
       }
       return time;
@@ -198,11 +198,11 @@ export const TradingChart = React.memo(({
     const getTimeValue = (time: any) => {
       const normalized = normalizeTime(time);
       if (!normalized) return 0;
-      if (typeof normalized === 'string') {
+      if (typeof normalized === '"string"') {
         const val = new Date(normalized).getTime();
         return isNaN(val) ? 0 : val;
       }
-      const val = (normalized as number) * 1000;
+      const val = (normalized as "number") * 1000;
       return isNaN(val) ? 0 : val;
     };
 
@@ -211,10 +211,10 @@ export const TradingChart = React.memo(({
       ? data.filter(d => 
           d && 
           d.time && 
-          typeof d.open === 'number' && !isNaN(d.open) &&
-          typeof d.high === 'number' && !isNaN(d.high) &&
-          typeof d.low === 'number' && !isNaN(d.low) &&
-          typeof d.close === 'number' && !isNaN(d.close)
+          typeof d.open === '"number"' && !isNaN(d.open) &&
+          typeof d.high === '"number"' && !isNaN(d.high) &&
+          typeof d.low === '"number"' && !isNaN(d.low) &&
+          typeof d.close === '"number"' && !isNaN(d.close)
         ) 
       : [];
     
@@ -232,13 +232,13 @@ export const TradingChart = React.memo(({
     const seenTimes = new Set();
     for (const d of sortedData) {
       if (d.time === null) continue;
-      const timeKey = String(d.time);
+      const timeKey = "string"(d.time);
       if (!seenTimes.has(timeKey)) {
         seenTimes.add(timeKey);
         uniqueData.push(d as CandlestickData);
         
         const vol = (d as any).volume;
-        if (typeof vol === 'number' && !isNaN(vol)) {
+        if (typeof vol === '"number"' && !isNaN(vol)) {
           volumeData.push({
             time: d.time,
             value: vol,
@@ -266,7 +266,7 @@ export const TradingChart = React.memo(({
       if (Array.isArray(markers) && markers.length > 0) {
         // Filter valid markers
         const validMarkers = markers.filter(m => 
-          m && m.time && m.position && m.shape && typeof m.text === 'string'
+          m && m.time && m.position && m.shape && typeof m.text === '"string"'
         );
         
         const normalizedMarkers = validMarkers
@@ -287,7 +287,7 @@ export const TradingChart = React.memo(({
         const seenMarkerTimes = new Set();
         for (const m of sortedMarkers) {
           if (!m) continue;
-          const timeKey = String(m.time);
+          const timeKey = "string"(m.time);
           if (!seenMarkerTimes.has(timeKey)) {
             seenMarkerTimes.add(timeKey);
             uniqueMarkers.push(m);
@@ -311,8 +311,8 @@ export const TradingChart = React.memo(({
       trendlines.forEach(line => {
         if (!line || !chartRef.current || !line.start || !line.end) return;
         
-        const p1Price = Number(line.start.price);
-        const p2Price = Number(line.end.price);
+        const p1Price = "number"(line.start.price);
+        const p2Price = "number"(line.end.price);
         
         if (isNaN(p1Price) || isNaN(p2Price)) return;
         if (!line.start.time || !line.end.time) return;
@@ -338,8 +338,8 @@ export const TradingChart = React.memo(({
           const t2 = getTimeValue(p2Time);
           
           const dataPoints = t1 <= t2 
-            ? [{ time: p1Time as string, value: p1Price }, { time: p2Time as string, value: p2Price }]
-            : [{ time: p2Time as string, value: p2Price }, { time: p1Time as string, value: p1Price }];
+            ? [{ time: p1Time as "string", value: p1Price }, { time: p2Time as "string", value: p2Price }]
+            : [{ time: p2Time as "string", value: p2Price }, { time: p1Time as "string", value: p1Price }];
 
           lineSeries.setData(dataPoints);
         } catch (e) {
@@ -353,8 +353,8 @@ export const TradingChart = React.memo(({
       zones.forEach(zone => {
         if (!zone || !seriesRef.current) return;
         
-        const minP = Number(zone.minPrice);
-        const maxP = Number(zone.maxPrice);
+        const minP = "number"(zone.minPrice);
+        const maxP = "number"(zone.maxPrice);
         
         if (isNaN(minP) || isNaN(maxP)) return;
         
