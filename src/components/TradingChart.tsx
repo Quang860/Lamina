@@ -36,12 +36,14 @@ interface TradingChartProps {
   onClose?: () => void;
 }
 
+const EMPTY_ARRAY: any[] = [];
+
 export const TradingChart = React.memo(({ 
   symbol, 
-  data = [], 
-  trendlines = [], 
-  zones = [], 
-  markers = [],
+  data = EMPTY_ARRAY, 
+  trendlines = EMPTY_ARRAY, 
+  zones = EMPTY_ARRAY, 
+  markers = EMPTY_ARRAY,
   isSimulation = true,
   onClose
 }: TradingChartProps) => {
@@ -49,6 +51,7 @@ export const TradingChart = React.memo(({
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const priceLinesRef = useRef<any[]>([]);
   const [fetchedData, setFetchedData] = React.useState<CandlestickData[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -69,22 +72,23 @@ export const TradingChart = React.memo(({
         // If not, we might need to use a CORS proxy.
         // Let's try VNDirect API directly first.
         const cleanSymbol = symbol.toUpperCase().trim();
-        const endDate = new Date().toISOString().split('T')[0];
-        const startDate = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 6 months
+        const endDate = Math.floor(Date.now() / 1000);
+        const startDate = Math.floor((Date.now() - 180 * 24 * 60 * 60 * 1000) / 1000); // 6 months
         
-        const response = await fetch(`https://finfo-api.vndirect.com.vn/v4/stock_prices?sort=date&q=code:${cleanSymbol}~date:gte:${startDate}~date:lte:${endDate}&size=200`);
+        const targetUrl = `https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?resolution=1D&symbol=${cleanSymbol}&from=${startDate}&to=${endDate}`;
+        const response = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`);
         if (!response.ok) throw new Error('Failed to fetch data');
         
         const result = await response.json();
-        if (result && result.data && result.data.length > 0) {
-          const formattedData = result.data.map((item: any) => ({
-            time: item.date,
-            open: item.adOpen || item.open,
-            high: item.adHigh || item.high,
-            low: item.adLow || item.low,
-            close: item.adClose || item.close,
-            volume: item.nmVolume || item.volume
-          })).reverse(); // API returns descending, lightweight-charts needs ascending
+        if (result && result.t && result.t.length > 0) {
+          const formattedData = result.t.map((time: number, index: number) => ({
+            time: time,
+            open: result.o[index],
+            high: result.h[index],
+            low: result.l[index],
+            close: result.c[index],
+            volume: result.v[index]
+          }));
           setFetchedData(formattedData);
           setIsRealData(true);
         } else {
@@ -121,7 +125,7 @@ export const TradingChart = React.memo(({
         layout: {
           background: { type: ColorType.Solid, color: 'transparent' },
           textColor: '#E2E8F0', // Brighter text for maximum clarity
-          fontSize: 15, // Adjusted from 16 to 15 for better balance with markers
+          fontSize: 16, // Increased font size for better readability
           fontFamily: "'Inter', sans-serif",
         },
         grid: {
@@ -329,7 +333,7 @@ export const TradingChart = React.memo(({
         const normalizedMarkers = validMarkers
           .map(m => {
             const t = normalizeTime(m.time);
-            return t ? { ...m, time: t } : null;
+            return t ? { ...m, time: t, size: 4 } : null;
           })
           .filter((m): m is any => m !== null);
         
@@ -405,36 +409,63 @@ export const TradingChart = React.memo(({
       });
     }
 
+    // Clear old price lines
+    if (seriesRef.current && priceLinesRef.current) {
+      priceLinesRef.current.forEach(line => {
+        try {
+          seriesRef.current?.removePriceLine(line);
+        } catch (e) {
+          // Ignore errors if line is already removed
+        }
+      });
+      priceLinesRef.current = [];
+    }
+
     // Draw Zones (Supply/Demand)
     if (Array.isArray(zones)) {
-      zones.forEach(zone => {
-        if (!zone || !seriesRef.current) return;
+      const uniqueZones = [];
+      const seenZones = new Set();
+      for (const zone of zones) {
+        if (!zone) continue;
+        const minP = Number(zone.minPrice);
+        const maxP = Number(zone.maxPrice);
+        if (isNaN(minP) || isNaN(maxP)) continue;
+        
+        // Use a key to deduplicate zones with the same price levels and label
+        const key = `${minP.toFixed(2)}-${maxP.toFixed(2)}-${zone.label}`;
+        if (!seenZones.has(key)) {
+          seenZones.add(key);
+          uniqueZones.push(zone);
+        }
+      }
+
+      uniqueZones.forEach(zone => {
+        if (!seriesRef.current) return;
         
         const minP = Number(zone.minPrice);
         const maxP = Number(zone.maxPrice);
-        
-        if (isNaN(minP) || isNaN(maxP)) return;
-        
         const color = zone.color || '#3B82F6';
         
         try {
-          seriesRef.current.createPriceLine({
+          const line1 = seriesRef.current.createPriceLine({
             price: maxP,
             color: color,
-            lineWidth: 1,
+            lineWidth: 2, // Slightly thicker line for better visibility
             lineStyle: 2, // Dashed
             axisLabelVisible: true,
-            title: zone.label ? `  ${zone.label}  ` : '', // Added spaces for padding
+            title: zone.label ? ` ${zone.label} ` : '', // Added spaces for padding
           });
+          priceLinesRef.current.push(line1);
           
-          seriesRef.current.createPriceLine({
+          const line2 = seriesRef.current.createPriceLine({
             price: minP,
             color: color,
-            lineWidth: 1,
+            lineWidth: 2,
             lineStyle: 2, // Dashed
             axisLabelVisible: false, // Only show label on top to avoid overlap
             title: '',
           });
+          priceLinesRef.current.push(line2);
         } catch (e) {
           console.error("Error setting zone data:", e);
         }

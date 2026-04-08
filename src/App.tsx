@@ -544,11 +544,12 @@ const SUGGESTED_PROMPTS = [
 
 const updateChartTool: FunctionDeclaration = {
   name: "updateChart",
-  description: "Sử dụng công cụ này ĐỂ HIỂN THỊ BIỂU ĐỒ trên giao diện. CHỈ DÙNG KHI NGƯỜI DÙNG YÊU CẦU VẼ BIỂU ĐỒ HOẶC PHÂN TÍCH KỸ THUẬT. TUYỆT ĐỐI KHÔNG tự ý gọi nếu người dùng chỉ hỏi về tâm lý hoặc tin tức. BẠN CHỈ CẦN CUNG CẤP MÃ CỔ PHIẾU (symbol) VÀ CÁC GHI CHÚ KỸ THUẬT (trendlines, zones, markers). HỆ THỐNG SẼ TỰ ĐỘNG LẤY DỮ LIỆU GIÁ THỰC TẾ 100% TỪ THỊ TRƯỜNG. TUYỆT ĐỐI CẤM xuất dữ liệu nến dưới dạng văn bản JSON hoặc Code Block trong khung chat. LƯU Ý: Nếu người dùng có hỏi thêm các vấn đề khác ngoài biểu đồ, bạn PHẢI trả lời các vấn đề đó bằng văn bản trước. Nếu người dùng CHỈ yêu cầu vẽ biểu đồ, bạn có thể gọi trực tiếp công cụ này.",
+  description: "Sử dụng công cụ này ĐỂ HIỂN THỊ BIỂU ĐỒ trên giao diện. CHỈ DÙNG KHI NGƯỜI DÙNG YÊU CẦU VẼ BIỂU ĐỒ HOẶC PHÂN TÍCH KỸ THUẬT. BẠN BẮT BUỘC PHẢI TÌM KIẾM GOOGLE ĐỂ LẤY GIÁ HIỆN TẠI TRƯỚC KHI GỌI CÔNG CỤ NÀY. CHỈ vẽ những vùng hỗ trợ/kháng cự (zones) THẬT SỰ TRỌNG YẾU (tối đa 2-3 vùng) và PHẢI CHÚ THÍCH RÕ RÀNG (VD: Hỗ trợ MA50, Kháng cự Fibo 0.618, Vùng Cầu mạnh). KHÔNG vẽ chi chít làm rối biểu đồ. HỆ THỐNG SẼ TỰ ĐỘNG LẤY DỮ LIỆU GIÁ THỰC TẾ 30 PHIÊN GẦN NHẤT.",
   parameters: {
     type: Type.OBJECT,
     properties: {
       symbol: { type: Type.STRING, description: "Mã cổ phiếu (VD: FPT, HPG, VNINDEX)" },
+      currentPrice: { type: Type.NUMBER, description: "Giá hiện tại chính xác của cổ phiếu (BẮT BUỘC phải search Google để lấy giá mới nhất hôm nay). RẤT QUAN TRỌNG để đồng bộ biểu đồ." },
       trendlines: {
         type: Type.ARRAY,
         description: "Danh sách các đường Trendline cần vẽ",
@@ -572,21 +573,21 @@ const updateChartTool: FunctionDeclaration = {
       },
       zones: {
         type: Type.ARRAY,
-        description: "Danh sách các vùng Cung/Cầu (Supply/Demand) theo chuẩn học thuật (Dùng tiếng Việt: Vùng Cung, Vùng Cầu)",
+        description: "Danh sách các vùng Cung/Cầu (Supply/Demand) TRỌNG YẾU. Tối đa 2-3 vùng.",
         items: {
           type: Type.OBJECT,
           properties: {
             minPrice: { type: Type.NUMBER },
             maxPrice: { type: Type.NUMBER },
             color: { type: Type.STRING, description: "Màu sắc (VD: #00ff00)" },
-            label: { type: Type.STRING, description: "Tên vùng kỹ thuật TIẾNG VIỆT (VD: Kháng cự, Hỗ trợ, Vùng Cung, Vùng Cầu)" }
+            label: { type: Type.STRING, description: "Chú thích RÕ RÀNG loại vùng (VD: Hỗ trợ MA50, Kháng cự Fibo 0.618, Đỉnh cũ)" }
           },
           required: ["minPrice", "maxPrice"]
         }
       },
       markers: {
         type: Type.ARRAY,
-        description: "Danh sách các điểm đánh dấu kỹ thuật KHÁCH QUAN TIẾNG VIỆT (VD: Bứt phá, Đột biến KL, Quá mua). CHỈ DÙNG THUẬT NGỮ HÀN LÂM TIẾNG VIỆT. CẤM các thuật ngữ tiếng lóng, suy đoán hoặc nhận định chủ quan.",
+        description: "Danh sách các điểm đánh dấu kỹ thuật KHÁCH QUAN TIẾNG VIỆT (VD: Bứt phá, Đột biến KL, Quá mua).",
         items: {
           type: Type.OBJECT,
           properties: {
@@ -604,7 +605,7 @@ const updateChartTool: FunctionDeclaration = {
         description: "Đặt là true nếu dữ liệu lịch sử (OHLC) là mô phỏng dựa trên xu hướng thay vì dữ liệu khớp lệnh thực tế 100%. Mặc định là true."
       }
     },
-    required: ["symbol"]
+    required: ["symbol", "currentPrice"]
   }
 };
 
@@ -688,6 +689,7 @@ export default function App() {
     zones?: Zone[];
     markers?: any[];
     isSimulation?: boolean;
+    currentPrice?: number;
   } | null>(null);
 
   const handleUpdateChart = useCallback((args: any) => {
@@ -697,7 +699,8 @@ export default function App() {
       trendlines: args.trendlines || [],
       zones: args.zones || [],
       markers: args.markers || [],
-      isSimulation: args.isSimulation !== undefined ? args.isSimulation : true
+      isSimulation: args.isSimulation !== undefined ? args.isSimulation : true,
+      currentPrice: args.currentPrice
     });
     setIsChartVisible(true);
     return { status: "success", message: "Chart updated" };
@@ -1122,10 +1125,17 @@ export default function App() {
           
           success = true;
         } catch (error: any) {
-          const errorMessage = error?.message || String(error);
+          let errorMessage = String(error?.message || error);
+          if (error && typeof error === 'object') {
+            try {
+              errorMessage += ' ' + JSON.stringify(error, Object.getOwnPropertyNames(error));
+            } catch (e) {}
+          }
+          
           const isUnavailable = errorMessage.includes('503') || errorMessage.includes('UNAVAILABLE') || errorMessage.includes('500') || errorMessage.includes('502') || errorMessage.includes('504') || errorMessage.toLowerCase().includes('high demand');
           const isJsonError = errorMessage.includes('Incomplete JSON segment') || errorMessage.includes('JSON');
           const isTimeout = errorMessage.includes('TIMEOUT') || errorMessage.includes('DEADLINE_EXCEEDED') || errorMessage.toLowerCase().includes('timeout');
+          const isQuotaError = errorMessage.includes('429') || errorMessage.includes('RESOURCE_EXHAUSTED') || errorMessage.includes('quota') || errorMessage.includes('spending cap');
           
           if (fullResponse.length > 0) {
             // If we already have a partial response, don't retry from scratch.
@@ -1140,7 +1150,7 @@ export default function App() {
             break;
           }
 
-          if (retries === 0 || (!isUnavailable && !isTimeout && !isJsonError)) {
+          if (retries === 0 || (!isUnavailable && !isTimeout && !isJsonError) || isQuotaError) {
             throw error; // Throw to outer catch block
           }
           
@@ -1160,13 +1170,19 @@ export default function App() {
     } catch (error: any) {
       console.error('Error sending message:', error);
       
+      let errorString = String(error?.message || error);
+      if (error && typeof error === 'object') {
+        try {
+          errorString += ' ' + JSON.stringify(error, Object.getOwnPropertyNames(error));
+        } catch (e) {}
+      }
+      
       let errorMessage = `Xin lỗi, đã có lỗi xảy ra trong quá trình kết nối. Chi tiết lỗi: ${error?.message || String(error)}`;
-      const errorString = String(error?.message || error);
       let isQuotaError = false;
       
       if (errorString.includes('TIMEOUT') || errorString.includes('DEADLINE_EXCEEDED') || errorString.toLowerCase().includes('timeout')) {
         errorMessage = "⚠️ **Hệ thống phản hồi quá chậm (Timeout).**\n\nMáy chủ AI hiện đang bị quá tải hoặc kết nối mạng không ổn định. Vui lòng thử lại sau ít phút.";
-      } else if (errorString.includes('429') || errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('quota')) {
+      } else if (errorString.includes('429') || errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('quota') || errorString.includes('spending cap')) {
         isQuotaError = true;
         errorMessage = "⚠️ **Hệ thống đã vượt quá giới hạn truy cập API (Lỗi 429 - Quota Exceeded / Resource Exhausted).**\n\nĐể tiếp tục sử dụng, vui lòng thiết lập API Key của riêng bạn.";
       } else if (errorString.includes('503') || errorString.includes('UNAVAILABLE') || errorString.includes('500') || errorString.includes('502') || errorString.includes('504') || errorString.includes('high demand')) {
@@ -1520,6 +1536,7 @@ export default function App() {
                   zones={chartConfig.zones}
                   markers={chartConfig.markers}
                   isSimulation={chartConfig.isSimulation}
+                  currentPrice={chartConfig.currentPrice}
                 />
               </ErrorBoundary>
             </div>
