@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI, Type, FunctionDeclaration } from '@google/genai';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Send, User, Bot, Loader2, AlertCircle, BookOpen, Newspaper, RefreshCcw, Globe, Activity, Image as ImageIcon, X, History, Plus, MessageSquare, Trash2, BarChart2, PanelLeftClose, PanelRightClose, Key, Pencil, Check, Zap } from 'lucide-react';
+import { Send, User, Bot, Loader2, AlertCircle, BookOpen, Newspaper, RefreshCcw, Globe, Activity, Image as ImageIcon, X, History, Plus, MessageSquare, Trash2, BarChart2, PanelLeftClose, PanelRightClose, Key, Pencil, Check, Zap, Share2, Download } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { motion, AnimatePresence } from 'motion/react';
@@ -12,6 +12,7 @@ import { TradingChart, Trendline, Zone } from './components/TradingChart';
 import { SentimentDashboard } from './components/SentimentDashboard';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CandlestickData } from 'lightweight-charts';
+import { toPng } from 'html-to-image';
 
 // Utility for Tailwind classes
 export function cn(...inputs: ClassValue[]) {
@@ -302,14 +303,16 @@ const MessageItem = React.memo(({
   isThisChartVisible,
   onToggleChart,
   onImageClick,
-  onQuickAnalyze
+  onQuickAnalyze,
+  onExport
 }: { 
   msg: Message, 
   onRetry: () => void,
   isThisChartVisible: boolean,
   onToggleChart: () => void,
   onImageClick: (url: string) => void,
-  onQuickAnalyze: (symbol: string) => void
+  onQuickAnalyze: (symbol: string) => void,
+  onExport: (msg: Message) => void
 }) => {
   const { displayContent, extractedSymbols } = React.useMemo(() => {
     if (msg.role !== 'model' || !msg.content) {
@@ -334,6 +337,9 @@ const MessageItem = React.memo(({
     // Remove hallucinated XML tags for tools
     content = content.replace(/<analyzeSentiment>[\s\S]*?<\/analyzeSentiment>/gi, '').trim();
     content = content.replace(/<updateChart>[\s\S]*?<\/updateChart>/gi, '').trim();
+    
+    // Format numbered lists as headers
+    content = content.replace(/^\s*(\d+\.\s+[^\r\n]+)/gm, '\n\n### $1\n\n');
     
     return { displayContent: content, extractedSymbols: Array.from(new Set(symbols)) };
   }, [msg.content, msg.role]);
@@ -392,6 +398,7 @@ const MessageItem = React.memo(({
                 <ReactMarkdown 
                   remarkPlugins={[remarkGfm]}
                   components={{
+                    h3: ({node, ...props}) => <h3 className="!text-fuchsia-400 !font-extrabold !text-2xl !mt-10 !mb-4 drop-shadow-[0_0_10px_rgba(217,70,239,0.8)]" {...props} />,
                     code({node, inline, className, children, ...props}: any) {
                       const match = /language-(\w+)/.exec(className || '');
                       const codeString = String(children).replace(/\n$/, '');
@@ -528,6 +535,18 @@ const MessageItem = React.memo(({
                 </div>
               </motion.div>
             )}
+
+            {/* Export Button */}
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => onExport(msg)}
+                className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 hover:border-purple-500/50 rounded-lg transition-all"
+                title="Xuất ảnh nhận định"
+              >
+                <Share2 className="w-4 h-4" />
+                Xuất ảnh
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -675,6 +694,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFileUrl, setSelectedFileUrl] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -691,6 +711,7 @@ export default function App() {
     isSimulation?: boolean;
     currentPrice?: number;
   } | null>(null);
+  const [exportingMessage, setExportingMessage] = useState<Message | null>(null);
 
   const handleUpdateChart = useCallback((args: any) => {
     setChartConfig({
@@ -906,6 +927,58 @@ export default function App() {
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleExportImage = async (message: Message) => {
+    setExportingMessage(message);
+    setTimeout(async () => {
+      const element = document.getElementById('export-container');
+      if (element) {
+        try {
+          const dataUrl = await toPng(element, {
+            backgroundColor: '#0B0914',
+            pixelRatio: 2,
+          });
+          const a = document.createElement('a');
+          a.href = dataUrl;
+          a.download = `LAMINA_Insight_${Date.now()}.png`;
+          a.click();
+        } catch (error) {
+          console.error("Failed to export image:", error);
+          alert("Có lỗi xảy ra khi xuất ảnh. Vui lòng thử lại.");
+        } finally {
+          setExportingMessage(null);
+        }
+      }
+    }, 500); // Wait for render
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && (file.type.startsWith('image/') || file.type === 'application/pdf')) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Kích thước file quá lớn. Vui lòng chọn file dưới 5MB.");
+        return;
+      }
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedFileUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -1567,6 +1640,7 @@ ${spamRule}]${priceContext}`;
                     }}
                     onImageClick={setZoomedImage}
                     onQuickAnalyze={handleQuickAnalyze}
+                    onExport={handleExportImage}
                   />
                 ))}
                 <div ref={messagesEndRef} />
@@ -1697,8 +1771,18 @@ ${spamRule}]${priceContext}`;
                 e.preventDefault();
                 handleSend(input);
               }}
-              className="relative z-10 flex items-end gap-2 bg-[#0B0914]/90 backdrop-blur-2xl rounded-[21px] p-2 transition-all duration-200 ease-out group-focus-within:bg-[#130F24]/90"
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`relative z-10 flex items-end gap-2 bg-[#0B0914]/90 backdrop-blur-2xl rounded-[21px] p-2 transition-all duration-200 ease-out group-focus-within:bg-[#130F24]/90 ${isDragging ? 'ring-2 ring-fuchsia-500 bg-fuchsia-500/10' : ''}`}
             >
+              {isDragging && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center rounded-[21px] bg-black/60 backdrop-blur-sm border-2 border-dashed border-fuchsia-500">
+                  <span className="text-fuchsia-400 font-medium flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5" /> Thả ảnh vào đây
+                  </span>
+                </div>
+              )}
               <input 
                 type="file" 
                 accept="image/*,application/pdf" 
@@ -1785,6 +1869,64 @@ ${spamRule}]${priceContext}`;
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Hidden Export Container */}
+      <div className="fixed top-0 left-0 z-[-1] opacity-0 pointer-events-none">
+        {exportingMessage && (
+          <div 
+            id="export-container" 
+            className="w-[1920px] bg-gradient-to-br from-[#1A1528] to-[#0B0914] p-24 text-white relative overflow-hidden"
+          >
+            {/* Background effects */}
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-purple-600 via-fuchsia-500 to-purple-600"></div>
+            <div className="absolute -top-40 -right-40 w-[500px] h-[500px] bg-purple-600/20 rounded-full blur-[120px]"></div>
+            <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] bg-fuchsia-600/20 rounded-full blur-[120px]"></div>
+            
+            {/* Header */}
+            <div className="flex items-center gap-8 mb-16 relative z-10 border-b border-white/10 pb-10">
+              <div className="w-32 h-32 rounded-[2rem] bg-gradient-to-br from-[#1A1528] to-[#0B0914] border border-purple-500/50 flex items-center justify-center shadow-[0_0_35px_rgba(147,51,234,0.4)]">
+                <CustomLogo className="w-20 h-20 text-purple-400" />
+              </div>
+              <div>
+                <h2 className="text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-purple-200">
+                  LAMINA by Lâm Chứng Khoán
+                </h2>
+                <p className="text-purple-400/80 text-2xl font-medium tracking-widest uppercase mt-4">
+                  Hệ Thống Phân Tích Đầu Tư Theo Từng Lớp
+                </p>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="prose prose-invert max-w-none relative z-10 text-[40px] prose-p:text-[40px] prose-p:leading-[1.8] prose-p:mb-12 prose-a:text-fuchsia-400 prose-strong:!text-purple-200 prose-strong:!font-bold prose-code:text-fuchsia-200">
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h3: ({node, ...props}) => <h3 className="!text-fuchsia-400 !font-extrabold !text-[56px] !mt-20 !mb-10 drop-shadow-[0_0_20px_rgba(217,70,239,0.8)]" {...props} />
+                }}
+              >
+                {exportingMessage.content
+                  ?.replace(/\[GỢI Ý MÃ LIÊN QUAN:\s*([A-Z0-9,\s]+)\][\s\S]*/gi, '')
+                  .replace(/<analyzeSentiment>[\s\S]*?<\/analyzeSentiment>/gi, '')
+                  .replace(/<updateChart>[\s\S]*?<\/updateChart>/gi, '')
+                  .replace(/^\s*(?:\*\*)?(\d+\.\s+[^\r\n\*]+)(?:\*\*)?/gm, '\n\n### $1\n\n')
+                  .trim() || ''}
+              </ReactMarkdown>
+            </div>
+
+            {/* Footer */}
+            <div className="mt-20 pt-10 border-t border-white/10 flex items-center justify-between relative z-10">
+              <div className="flex items-center gap-4 text-slate-400 text-2xl">
+                <Activity className="w-8 h-8 text-fuchsia-400" />
+                <span>Phân tích tự động bởi AI - Dữ liệu Real-time</span>
+              </div>
+              <div className="text-slate-500 text-2xl font-medium">
+                {new Date().toLocaleDateString('vi-VN')}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

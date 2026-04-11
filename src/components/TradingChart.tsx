@@ -72,10 +72,12 @@ export const TradingChart = React.memo(({
         // If not, we might need to use a CORS proxy.
         // Let's try VNDirect API directly first.
         const cleanSymbol = symbol.toUpperCase().trim();
+        const isIndex = cleanSymbol === 'VNINDEX' || cleanSymbol === 'VN-INDEX' || cleanSymbol === 'VN30';
+        const endpoint = isIndex ? 'index' : 'stock';
         const endDate = Math.floor(Date.now() / 1000);
         const startDate = Math.floor((Date.now() - 180 * 24 * 60 * 60 * 1000) / 1000); // 6 months
         
-        const targetUrl = `https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?resolution=1D&symbol=${cleanSymbol}&from=${startDate}&to=${endDate}`;
+        const targetUrl = `https://services.entrade.com.vn/chart-api/v2/ohlcs/${endpoint}?resolution=1D&symbol=${cleanSymbol}&from=${startDate}&to=${endDate}`;
         const response = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`);
         if (!response.ok) throw new Error('Failed to fetch data');
         
