@@ -1221,6 +1221,49 @@ ${spamRule}]${priceContext}`;
             if (chunk.text) {
               fullResponse += chunk.text;
             }
+            let requestPhase = 'INITIALIZATION';
+
+        try {
+          requestPhase = 'INIT_CHAT_HISTORY';
+          const historyMessages = [...messages, userMessage].slice(-5);
+          initChat(historyMessages, dynamicContext);
+
+          requestPhase = 'SENDING_STREAM_REQUEST';
+          let initialTimeoutId: NodeJS.Timeout;
+          const timeoutPromise = new Promise((_, reject) => {
+            initialTimeoutId = setTimeout(() => reject(new Error('TIMEOUT_INITIAL_CONNECTION')), TIMEOUT_MS);
+          });
+
+          const responseStream = await Promise.race([
+            chatRef.current.sendMessageStream({ message: messagePayload }),
+            timeoutPromise
+          ]).finally(() => clearTimeout(initialTimeoutId)) as any;
+          
+          requestPhase = 'INITIALIZING_STREAM_ITERATOR';
+          const iterator = responseStream[Symbol.asyncIterator]();
+          let lastUpdateTime = Date.now();
+
+          while (true) {
+            requestPhase = 'AWAITING_NEXT_CHUNK';
+            let chunkTimeoutId: NodeJS.Timeout;
+            const chunkTimeout = new Promise((_, reject) => {
+              chunkTimeoutId = setTimeout(() => reject(new Error('TIMEOUT_STREAM_CHUNK')), TIMEOUT_MS);
+            });
+            
+            const result = await Promise.race([
+              iterator.next(),
+              chunkTimeout
+            ]).finally(() => clearTimeout(chunkTimeoutId)) as IteratorResult<any>;
+            
+            if (result.done) break;
+            
+            requestPhase = 'PROCESSING_CHUNK_TEXT';
+            const chunk = result.value;
+            if (chunk.text) {
+              fullResponse += chunk.text;
+            }
+
+            requestPhase = 'PARSING_FUNCTION_CALLS';
 
             // Handle function calls
             const functionCalls = chunk.functionCalls;
@@ -1242,6 +1285,8 @@ ${spamRule}]${priceContext}`;
                 }
               }
             }
+            
+            requestPhase = 'EXTRACTING_GROUNDING_METADATA';
 
             // Extract grounding sources if available
             const groundingChunks = chunk.candidates?.[0]?.groundingMetadata?.groundingChunks;
@@ -1260,7 +1305,7 @@ ${spamRule}]${priceContext}`;
                 currentSources = newSources;
               }
             }
-
+            
             const now = Date.now();
             if (now - lastUpdateTime > 100) {
               setMessages((prev) => 
@@ -1281,77 +1326,79 @@ ${spamRule}]${priceContext}`;
           
           success = true;
         } catch (error: any) {
-          let errorMessage = String(error?.message || error);
-          if (error && typeof error === 'object') {
-            try {
-              errorMessage += ' ' + JSON.stringify(error, Object.getOwnPropertyNames(error));
-            } catch (e) {}
-          }
+          // 1. Extract error details
+          const errorName = error?.name || 'UnknownError';
+          const errorMessage = error?.message || String(error);
+          const errorStack = error?.stack || 'No stack trace available';
           
-          const isUnavailable = errorMessage.includes('503') || errorMessage.includes('UNAVAILABLE') || errorMessage.includes('500') || errorMessage.includes('502') || errorMessage.includes('504') || errorMessage.toLowerCase().includes('high demand');
-          const isJsonError = errorMessage.includes('Incomplete JSON segment') || errorMessage.includes('JSON');
-          const isTimeout = errorMessage.includes('TIMEOUT') || errorMessage.includes('DEADLINE_EXCEEDED') || errorMessage.toLowerCase().includes('timeout');
-          const isQuotaError = errorMessage.includes('429') || errorMessage.includes('RESOURCE_EXHAUSTED') || errorMessage.includes('quota') || errorMessage.includes('spending cap');
-          
+          // 2. Deep log the exact failure point to the developer console
+          console.error(`[Gemini API Critical Failure]`, {
+            failedDuringPhase: requestPhase,
+            errorName: errorName,
+            message: errorMessage,
+            stack: errorStack,
+            rawErrorObject: error,
+            partialResponseCaptured: fullResponse.length > 0,
+            retryAttemptsLeft: retries
+          });
+
+          const errorStringLower = errorMessage.toLowerCase();
+          const isUnavailable = errorStringLower.includes('503') || errorStringLower.includes('unavailable') || errorStringLower.includes('500') || errorStringLower.includes('502') || errorStringLower.includes('504') || errorStringLower.includes('high demand');
+          const isJsonError = errorStringLower.includes('incomplete json segment') || errorStringLower.includes('json') || requestPhase === 'PARSING_FUNCTION_CALLS';
+          const isTimeout = errorStringLower.includes('timeout') || errorStringLower.includes('deadline_exceeded');
+          const isQuotaError = errorStringLower.includes('429') || errorStringLower.includes('resource_exhausted') || errorStringLower.includes('quota') || errorStringLower.includes('spending cap');
+
+          // 3. Handle partial responses (if stream broke halfway)
           if (fullResponse.length > 0) {
-            // If we already have a partial response, don't retry from scratch.
-            // Just append a warning and stop.
-            fullResponse += `\n\n*(Kết nối bị gián đoạn. Vui lòng hỏi tiếp ý bạn đang quan tâm.)*`;
+            fullResponse += `\n\n*(Kết nối bị gián đoạn tại bước: ${requestPhase}. Vui lòng hỏi tiếp ý bạn đang quan tâm.)*`;
             setMessages((prev) => 
               prev.map((msg) => 
                 msg.id === modelMessageId ? { ...msg, content: fullResponse, sources: currentSources, chartConfig: currentChartConfig, sentimentConfig: currentSentimentConfig } : msg
               )
             );
             success = true;
-            break;
+            break; 
           }
 
-          if (retries === 0 || (!isUnavailable && !isTimeout && !isJsonError) || isQuotaError) {
-            throw error; // Throw to outer catch block
+          // 4. Retry Logic (Only for network/server hiccups, NOT quota errors)
+          if (retries > 0 && (isUnavailable || isTimeout || isJsonError) && !isQuotaError) {
+            console.warn(`API call failed during ${requestPhase}, retrying in ${delay}ms... (${retries} retries left)`);
+            setMessages((prev) => 
+              prev.map((msg) => 
+                msg.id === modelMessageId ? { ...msg, content: `*(Lỗi tại ${requestPhase}, tự động thử lại sau ${delay/1000}s...)*`, sources: [], chartConfig: null, sentimentConfig: null } : msg
+              )
+            );
+            await new Promise(resolve => setTimeout(resolve, delay));
+            delay *= 2; 
+            retries--;
+            continue; // Loop back and try again
           }
+
+          // 5. Final UI Error (If retries run out or it's a fatal error like Quota)
+          let userFriendlyMessage = `⚠️ **Đã có lỗi xảy ra tại bước: ${requestPhase}.**\n\nKhông thể kết nối đến hệ thống AI.`;
           
-          console.warn(`API call failed (${errorMessage}), retrying in ${delay}ms... (${retries} retries left)`);
-          
+          if (isTimeout) {
+            userFriendlyMessage = `⚠️ **Hệ thống phản hồi quá chậm (Timeout).**\n\nLỗi xảy ra tại bước: \`${requestPhase}\`. Vui lòng thử lại.`;
+          } else if (isQuotaError) {
+            userFriendlyMessage = "⚠️ **Hết dung lượng API (Quota Exceeded).**\n\nVui lòng thiết lập API Key cá nhân để tiếp tục.";
+          } else if (isUnavailable) {
+            userFriendlyMessage = `⚠️ **Máy chủ AI đang quá tải (Lỗi Server).**\n\nHệ thống từ chối kết nối tại bước \`${requestPhase}\`. Vui lòng chờ vài phút.`;
+          } else if (isJsonError) {
+            userFriendlyMessage = "⚠️ **Lỗi đọc dữ liệu công cụ (JSON Parse Error).**\n\nAI trả về cấu trúc dữ liệu bị hỏng. Vui lòng hỏi lại ngắn gọn hơn.";
+          }
+
           setMessages((prev) => 
             prev.map((msg) => 
-              msg.id === modelMessageId ? { ...msg, content: `*(Hệ thống đang quá tải, tự động thử lại sau ${delay/1000}s...)*`, sources: [], chartConfig: null, sentimentConfig: null } : msg
+              msg.id === modelMessageId ? { ...msg, content: userFriendlyMessage, isQuotaError, sources: [], chartConfig: null, sentimentConfig: null } : msg
             )
           );
           
-          await new Promise(resolve => setTimeout(resolve, delay));
-          delay *= 2; // Exponential backoff
-          retries--;
+          // Break the while loop since we've handled the final error
+          break;
         }
-      }
-    } catch (error: any) {
-      console.error('Error sending message:', error);
-      
-      let errorString = String(error?.message || error);
-      if (error && typeof error === 'object') {
-        try {
-          errorString += ' ' + JSON.stringify(error, Object.getOwnPropertyNames(error));
-        } catch (e) {}
-      }
-      
-      let errorMessage = `Xin lỗi, đã có lỗi xảy ra trong quá trình kết nối. Chi tiết lỗi: ${error?.message || String(error)}`;
-      let isQuotaError = false;
-      
-      if (errorString.includes('TIMEOUT') || errorString.includes('DEADLINE_EXCEEDED') || errorString.toLowerCase().includes('timeout')) {
-        errorMessage = "⚠️ **Hệ thống phản hồi quá chậm (Timeout).**\n\nMáy chủ AI hiện đang bị quá tải hoặc kết nối mạng không ổn định. Vui lòng thử lại sau ít phút.";
-      } else if (errorString.includes('429') || errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('quota') || errorString.includes('spending cap')) {
-        isQuotaError = true;
-        errorMessage = "⚠️ **Hệ thống đã vượt quá giới hạn truy cập API (Lỗi 429 - Quota Exceeded / Resource Exhausted).**\n\nĐể tiếp tục sử dụng, vui lòng thiết lập API Key của riêng bạn.";
-      } else if (errorString.includes('503') || errorString.includes('UNAVAILABLE') || errorString.includes('500') || errorString.includes('502') || errorString.includes('504') || errorString.includes('high demand')) {
-        errorMessage = "⚠️ **Mô hình AI đang quá tải (High Demand).**\n\nHiện tại có quá nhiều yêu cầu truy cập cùng lúc khiến hệ thống không thể phản hồi. Vui lòng thử lại sau ít phút.";
-      } else if (errorString.includes('Incomplete JSON segment') || errorString.includes('JSON')) {
-        errorMessage = "⚠️ **Lỗi xử lý dữ liệu (JSON Error).**\n\nCâu trả lời của AI quá dài hoặc bị ngắt quãng giữa chừng. Vui lòng thử hỏi lại với nội dung ngắn gọn hơn.";
-      }
-
-      setMessages((prev) => 
-        prev.map((msg) => 
-          msg.id === modelMessageId ? { ...msg, content: errorMessage, isQuotaError, sources: [], chartConfig: null, sentimentConfig: null } : msg
-        )
-      );
+      } // End of while loop
+    } catch (criticalError) {
+       console.error("Critical outer error:", criticalError);
     } finally {
       setIsLoading(false);
     }
