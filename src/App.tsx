@@ -1162,7 +1162,7 @@ ${spamRule}]${priceContext}`;
         ];
       }
       
-      const TIMEOUT_MS = 120000; // 120 seconds timeout to allow for slow API responses
+const TIMEOUT_MS = 120000; // 120 seconds timeout to allow for slow API responses
       const MAX_RETRIES = 3; // Increase retries for 503 High Demand errors
       let retries = MAX_RETRIES;
       let delay = 2000; // Start with 2s delay
@@ -1173,12 +1173,13 @@ ${spamRule}]${priceContext}`;
       let currentChartConfig: any = null;
       let currentSentimentConfig: any = null;
       let currentToolCallText = '';
+      
+      // 1. Khai báo requestPhase ở vòng ngoài cùng
+      let requestPhase = 'INITIALIZATION';
 
       while (retries >= 0 && !success) {
         try {
-          // ALWAYS re-initialize chat to ensure clean history without duplicate hiddenContexts
-          // Limit history to last 5 messages to prevent payload from getting too large and exceeding max tokens
-          // We pass the current messages + the new user message
+          requestPhase = 'INIT_CHAT_HISTORY';
           const historyMessages = [...messages, userMessage].slice(-5);
           initChat(historyMessages, dynamicContext);
 
@@ -1190,43 +1191,6 @@ ${spamRule}]${priceContext}`;
             currentSentimentConfig = null;
             currentToolCallText = '';
           }
-
-          let initialTimeoutId: NodeJS.Timeout;
-          const timeoutPromise = new Promise((_, reject) => {
-            initialTimeoutId = setTimeout(() => reject(new Error('TIMEOUT')), TIMEOUT_MS);
-          });
-
-          const responseStream = await Promise.race([
-            chatRef.current.sendMessageStream({ message: messagePayload }),
-            timeoutPromise
-          ]).finally(() => clearTimeout(initialTimeoutId)) as any;
-          
-          const iterator = responseStream[Symbol.asyncIterator]();
-          let lastUpdateTime = Date.now();
-
-          while (true) {
-            let chunkTimeoutId: NodeJS.Timeout;
-            const chunkTimeout = new Promise((_, reject) => {
-              chunkTimeoutId = setTimeout(() => reject(new Error('TIMEOUT')), TIMEOUT_MS);
-            });
-            
-            const result = await Promise.race([
-              iterator.next(),
-              chunkTimeout
-            ]).finally(() => clearTimeout(chunkTimeoutId)) as IteratorResult<any>;
-            
-            if (result.done) break;
-            
-            const chunk = result.value;
-            if (chunk.text) {
-              fullResponse += chunk.text;
-            }
-            let requestPhase = 'INITIALIZATION';
-
-        try {
-          requestPhase = 'INIT_CHAT_HISTORY';
-          const historyMessages = [...messages, userMessage].slice(-5);
-          initChat(historyMessages, dynamicContext);
 
           requestPhase = 'SENDING_STREAM_REQUEST';
           let initialTimeoutId: NodeJS.Timeout;
@@ -1264,8 +1228,6 @@ ${spamRule}]${priceContext}`;
             }
 
             requestPhase = 'PARSING_FUNCTION_CALLS';
-
-            // Handle function calls
             const functionCalls = chunk.functionCalls;
             if (functionCalls && functionCalls.length > 0) {
               for (const call of functionCalls) {
@@ -1287,8 +1249,6 @@ ${spamRule}]${priceContext}`;
             }
             
             requestPhase = 'EXTRACTING_GROUNDING_METADATA';
-
-            // Extract grounding sources if available
             const groundingChunks = chunk.candidates?.[0]?.groundingMetadata?.groundingChunks;
             if (groundingChunks) {
               const extractedSources = groundingChunks
@@ -1315,7 +1275,7 @@ ${spamRule}]${priceContext}`;
               );
               lastUpdateTime = now;
             }
-          }
+          } // End of inner stream while(true) loop
 
           // Final update to ensure everything is rendered
           setMessages((prev) => 
@@ -1393,10 +1353,9 @@ ${spamRule}]${priceContext}`;
             )
           );
           
-          // Break the while loop since we've handled the final error
           break;
         }
-      } // End of while loop
+      } // End of outer while(retries) loop
     } catch (criticalError) {
        console.error("Critical outer error:", criticalError);
     } finally {
