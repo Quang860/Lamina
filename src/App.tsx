@@ -334,12 +334,8 @@ const MessageItem = React.memo(({
     // Remove the suggestion text and any trailing garbage characters (like repeated 'v's or 'V's)
     content = content.replace(/\[GỢI Ý MÃ LIÊN QUAN:\s*([A-Z0-9,\s]+)\][\s\S]*/gi, '').trim();
     
-    // Remove hallucinated XML tags for tools
-    content = content.replace(/<analyzeSentiment>[\s\S]*?<\/analyzeSentiment>/gi, '').trim();
-    content = content.replace(/<updateChart>[\s\S]*?<\/updateChart>/gi, '').trim();
-    
-    // Format numbered lists as headers
-    content = content.replace(/^\s*(\d+\.\s+[^\r\n]+)/gm, '\n\n### $1\n\n');
+    // Use the helper function to format the content
+    content = formatMarkdownContent(content);
     
     return { displayContent: content, extractedSymbols: Array.from(new Set(symbols)) };
   }, [msg.content, msg.role]);
@@ -686,6 +682,52 @@ const analyzeSentimentTool: FunctionDeclaration = {
     },
     required: ["symbol", "sentimentScore", "bullishPercentage", "bearishPercentage", "neutralPercentage", "keyKeywords", "summary", "context"]
   }
+};
+
+// Helper function to format markdown content
+const formatMarkdownContent = (content: string) => {
+  if (!content) return '';
+  
+  let formatted = content
+    .replace(/\[GỢI Ý MÃ LIÊN QUAN:\s*([A-Z0-9,\s]+)\][\s\S]*/gi, '')
+    .replace(/<analyzeSentiment>[\s\S]*?<\/analyzeSentiment>/gi, '')
+    .replace(/<updateChart>[\s\S]*?<\/updateChart>/gi, '');
+
+  // Format numbered lists as headers. Split title and content.
+  formatted = formatted.replace(/^\s*(?:\*\*)?(\d+\.\s+)(.*)$/gm, (match, prefix, restOfLine) => {
+    let title = restOfLine;
+    let rest = "";
+
+    // Pattern 1: Title ends with colon (optionally wrapped in **)
+    const colonMatch = restOfLine.match(/^((?:\*\*)?[^:]+?(?:\*\*)?:\s*(?:\*\*)?\s+)(.*)$/);
+    if (colonMatch) {
+      title = colonMatch[1];
+      rest = colonMatch[2];
+    } else {
+      // Pattern 2: Title ends with dash
+      const dashMatch = restOfLine.match(/^((?:\*\*)?[^\-]+?(?:\*\*)?\s+-\s+(?:\*\*)?\s+)(.*)$/);
+      if (dashMatch) {
+        title = dashMatch[1];
+        rest = dashMatch[2];
+      } else {
+        // Pattern 3: Title is just bolded
+        const boldMatch = restOfLine.match(/^(\*\*.*?\*\*\s+)(.*)$/);
+        if (boldMatch) {
+          title = boldMatch[1];
+          rest = boldMatch[2];
+        }
+      }
+    }
+
+    title = prefix + title.replace(/\*\*/g, '').trim();
+    if (rest.trim()) {
+      return `\n\n### ${title}\n\n${rest.trim()}`;
+    } else {
+      return `\n\n### ${title}\n\n`;
+    }
+  });
+
+  return formatted.trim();
 };
 
 export default function App() {
@@ -1905,12 +1947,7 @@ ${spamRule}]${priceContext}`;
                   h3: ({node, ...props}) => <h3 className="!text-[#E879F9] !font-extrabold !text-[56px] !mt-20 !mb-10 drop-shadow-[0_0_15px_rgba(232,121,249,0.5)]" {...props} />
                 }}
               >
-                {exportingMessage.content
-                  ?.replace(/\[GỢI Ý MÃ LIÊN QUAN:\s*([A-Z0-9,\s]+)\][\s\S]*/gi, '')
-                  .replace(/<analyzeSentiment>[\s\S]*?<\/analyzeSentiment>/gi, '')
-                  .replace(/<updateChart>[\s\S]*?<\/updateChart>/gi, '')
-                  .replace(/^\s*(?:\*\*)?(\d+\.\s+[^\r\n\*]+)(?:\*\*)?/gm, '\n\n### $1\n\n')
-                  .trim() || ''}
+                {formatMarkdownContent(exportingMessage.content || '')}
               </ReactMarkdown>
             </div>
 
