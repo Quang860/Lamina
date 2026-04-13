@@ -799,7 +799,7 @@ export default function App() {
 
     chatRef.current = aiInstance.chats.create({
       model: 'gemini-flash-latest',
-      history: history,
+      const trimmedHistory = history.slice(-10);,
       config: {
         systemInstruction: getSystemInstruction(dynamicContext),
         temperature: 0.7,
