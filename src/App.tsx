@@ -797,9 +797,10 @@ export default function App() {
       };
     });
 
+    const trimmedHistory = history.slice(-10);
     chatRef.current = aiInstance.chats.create({
       model: 'gemini-flash-latest',
-      const trimmedHistory = history.slice(-10);,
+      history: trimmedHistory,
       config: {
         systemInstruction: getSystemInstruction(dynamicContext),
         temperature: 0.7,
