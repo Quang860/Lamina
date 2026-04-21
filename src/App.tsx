@@ -884,7 +884,7 @@ async function createChatWithFailover(history, dynamicContext) {
   }
 }
     const trimmedHistory = history.slice(-10);
-    chatRef.current = await createChatWithFailover(
+    chatRef.current = createChatWithFailover(
    history,
    dynamicContext
 );
