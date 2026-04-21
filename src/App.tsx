@@ -819,22 +819,75 @@ export default function App() {
         parts: parts.length > 0 ? parts : [{ text: ' ' }]
       };
     });
+async function createChatWithFailover(history, dynamicContext) {
 
-    const trimmedHistory = history.slice(-10);
-    chatRef.current = aiInstance.chats.create({
-      model: 'gemini-3.1-pro-preview',
-      history: trimmedHistory,
+  try {
+
+    return aiInstance.chats.create({
+      model: 'gemini-pro-latest',
+      history: history.slice(-10),
+
       config: {
         systemInstruction: getSystemInstruction(dynamicContext),
         temperature: 0.7,
         maxOutputTokens: 8192,
-        tools: [{ googleSearch: {} }, { functionDeclarations: [updateChartTool, analyzeSentimentTool] }],
+
+        tools: [
+          { googleSearch: {} },
+          { functionDeclarations: [updateChartTool, analyzeSentimentTool] }
+        ],
+
         toolConfig: {
           includeServerSideToolInvocations: true
-        } as any
-      },
+        }
+      }
     });
-  }, []);
+
+  } catch(error) {
+
+    const err = String(error);
+
+    if (
+      err.includes('503') ||
+      err.includes('500') ||
+      err.includes('502') ||
+      err.includes('504') ||
+      err.includes('UNAVAILABLE') ||
+      err.includes('high demand')
+    ) {
+
+      console.warn("Failover -> Gemini Flash");
+
+      return aiInstance.chats.create({
+        model: 'gemini-flash-latest',
+        history: history.slice(-10),
+
+        config: {
+          systemInstruction: getSystemInstruction(dynamicContext),
+          temperature: 0.7,
+          maxOutputTokens: 8192,
+
+          tools: [
+            { googleSearch: {} },
+            { functionDeclarations: [updateChartTool, analyzeSentimentTool] }
+          ],
+
+          toolConfig: {
+            includeServerSideToolInvocations: true
+          }
+        }
+      });
+
+    }
+
+    throw error;
+  }
+}
+    const trimmedHistory = history.slice(-10);
+    chatRef.current = await createChatWithFailover(
+   history,
+   dynamicContext
+);
 
   const handleNewChat = useCallback(() => {
     const newId = Date.now().toString();
