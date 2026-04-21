@@ -819,7 +819,7 @@ export default function App() {
         parts: parts.length > 0 ? parts : [{ text: ' ' }]
       };
     });
-async function createChatWithFailover(history, dynamicContext) {
+function createChatWithFailover(...)
 
   try {
 
