@@ -1147,10 +1147,44 @@ export default function App() {
       if (symbolsToFetch.length > 0) {
         const prices = await Promise.all(symbolsToFetch.map(async (symbol) => {
           try {
+            const cleanSymbol = symbol.toUpperCase().trim();
+            const endpointType = (cleanSymbol === 'VNINDEX' || cleanSymbol === 'VN-INDEX' || cleanSymbol === 'VN30') ? 'index' : 'stock';
             const to = Math.floor(Date.now() / 1000);
             const from = to - 730 * 24 * 60 * 60; // 730 days back to get ~2 years of trading days
-            const response = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://services.entrade.com.vn/chart-api/v2/ohlcs/stock?resolution=1D&symbol=${symbol}&from=${from}&to=${to}`)}`);
-            const data = await response.json();
+
+            let data = null;
+            let currentProxyIndex = 0;
+            const proxies = [
+              (url: string) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+              (url: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+              (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+            ];
+
+            const targetUrl = `https://services.entrade.com.vn/chart-api/v2/ohlcs/${endpointType}?resolution=1D&symbol=${cleanSymbol}&from=${from}&to=${to}`;
+
+            while (currentProxyIndex < proxies.length) {
+              try {
+                const proxyUrl = proxies[currentProxyIndex](targetUrl);
+                const response = await fetch(proxyUrl);
+                
+                if (currentProxyIndex === 1) { // allorigins wraps response
+                  const json = await response.json();
+                  if (json.contents) {
+                    data = JSON.parse(json.contents);
+                  }
+                } else {
+                  data = await response.json();
+                }
+
+                if (data && data.c && data.c.length > 0) {
+                  break; // Got valid data
+                }
+              } catch (e) {
+                console.warn(`Proxy ${currentProxyIndex} failed in App.tsx`);
+              }
+              currentProxyIndex++;
+            }
+
             if (data && data.c && data.c.length > 0) {
               const closes = data.c; // All available closes in the last 2 years
               const current = closes[closes.length - 1];
