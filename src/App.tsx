@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
-import { Send, User, Bot, Loader2, AlertCircle, BookOpen, Newspaper, RefreshCcw, Globe, Activity, Image as ImageIcon, X, History, Plus, MessageSquare, Trash2, BarChart2, PanelLeftClose, PanelRightClose, Key, Pencil, Check, Zap, Share2, Download } from 'lucide-react';
+import { Send, User, Bot, Loader2, AlertCircle, BookOpen, Newspaper, RefreshCcw, Globe, Activity, Image as ImageIcon, X, History, Plus, MessageSquare, Trash2, BarChart2, PanelLeftClose, PanelRightClose, Key, Pencil, Check, Zap, Share2, Download, Square } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { motion, AnimatePresence } from 'motion/react';
@@ -376,7 +376,12 @@ const MessageItem = React.memo(({
             {msg.images && msg.images.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {msg.images.map((img, idx) => (
-                  img.startsWith('data:image/') ? (
+                  img === '[Hình ảnh]' ? (
+                    <div key={idx} className="flex items-center gap-3 p-3 bg-white/10 rounded-xl border border-white/20">
+                      <ImageIcon className="w-8 h-8 text-slate-400" />
+                      <span className="text-base font-medium text-slate-400 line-through">Hình ảnh đã xóa</span>
+                    </div>
+                  ) : (img && img.startsWith('data:image/')) ? (
                     <img 
                       key={idx}
                       src={img} 
@@ -396,7 +401,12 @@ const MessageItem = React.memo(({
               </div>
             )}
             {msg.image && !msg.images && (
-              msg.image.startsWith('data:image/') ? (
+              msg.image === '[Hình ảnh]' ? (
+                <div className="flex items-center gap-3 p-3 bg-white/10 rounded-xl border border-white/20">
+                  <ImageIcon className="w-8 h-8 text-slate-400" />
+                  <span className="text-base font-medium text-slate-400 line-through">Hình ảnh đã xóa</span>
+                </div>
+              ) : msg.image.startsWith('data:image/') ? (
                 <img 
                   src={msg.image} 
                   alt="Uploaded content" 
@@ -774,6 +784,7 @@ export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const stopGenerationRef = useRef<boolean>(false);
   const [selectedFiles, setSelectedFiles] = useState<{url: string, file: File}[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
@@ -938,10 +949,32 @@ export default function App() {
       }
       
       newSessions.sort((a, b) => b.updatedAt - a.updatedAt);
-      localStorage.setItem('chat_sessions', JSON.stringify(newSessions));
       return newSessions;
     });
   }, [messages, currentSessionId]);
+
+  // Handle saving sessions to localStorage safely
+  useEffect(() => {
+    if (sessions.length === 0) return;
+    try {
+      localStorage.setItem('chat_sessions', JSON.stringify(sessions));
+    } catch (error) {
+      console.warn('Quota exceeded, stripping images from localStorage save.');
+      try {
+        const leanSessions = sessions.map(session => ({
+          ...session,
+          messages: session.messages.map(m => ({
+            ...m,
+            image: m.image ? '[Hình ảnh]' : undefined,
+            images: m.images ? m.images.map(() => '[Hình ảnh]') : undefined
+          }))
+        }));
+        localStorage.setItem('chat_sessions', JSON.stringify(leanSessions));
+      } catch (err) {
+        console.error('Failed to save sessions even without images', err);
+      }
+    }
+  }, [sessions]);
 
   const handleSelectSession = (id: string) => {
     const session = sessions.find(s => s.id === id);
@@ -966,7 +999,6 @@ export default function App() {
   const handleDeleteSession = (id: string) => {
     setSessions(prev => {
       const newSessions = prev.filter(s => s.id !== id);
-      localStorage.setItem('chat_sessions', JSON.stringify(newSessions));
       return newSessions;
     });
     if (currentSessionId === id) {
@@ -978,7 +1010,6 @@ export default function App() {
     if (!newTitle.trim()) return;
     setSessions(prev => {
       const newSessions = prev.map(s => s.id === id ? { ...s, title: newTitle.trim() } : s);
-      localStorage.setItem('chat_sessions', JSON.stringify(newSessions));
       return newSessions;
     });
     setEditingSessionId(null);
@@ -1001,7 +1032,7 @@ export default function App() {
     }
   };
 
-  const addFiles = (files: File[]) => {
+  const addFiles = async (files: File[]) => {
     const validFiles = files.filter(file => file.type.startsWith('image/') || file.type === 'application/pdf');
     
     if (validFiles.length === 0) return;
@@ -1012,23 +1043,78 @@ export default function App() {
     }
 
     const newFiles: {url: string, file: File}[] = [];
-    let processedCount = 0;
-
-    validFiles.forEach(file => {
-      if (file.size > 5 * 1024 * 1024) {
-        alert(`File ${file.name} quá lớn. Vui lòng chọn file dưới 5MB.`);
-        processedCount++;
-        return;
+    
+    for (const file of validFiles) {
+      if (file.size > 15 * 1024 * 1024) {
+        alert(`File ${file.name} quá lớn. Vui lòng chọn file dưới 15MB.`);
+        continue;
       }
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        newFiles.push({ url: reader.result as string, file });
-        processedCount++;
-        if (processedCount === validFiles.length) {
-          setSelectedFiles(prev => [...prev, ...newFiles]);
+      try {
+        if (file.type.startsWith('image/')) {
+          const url = await compressImage(file);
+          newFiles.push({ url, file });
+        } else {
+          // It's a PDF, we can't easily compress in browser without a heavy library, so limit by size
+          if (file.size > 5 * 1024 * 1024) {
+             alert(`PDF ${file.name} quá lớn (>5MB).`);
+             continue;
+          }
+          const reader = new FileReader();
+          const url = await new Promise<string>((resolve) => {
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          });
+          newFiles.push({ url, file });
         }
+      } catch (err) {
+        console.error("Error reading/compressing file", err);
+      }
+    }
+    
+    if (newFiles.length > 0) {
+      setSelectedFiles(prev => [...prev, ...newFiles]);
+    }
+  };
+
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          // Max dimension 800px to keep base64 string small
+          const MAX_DIMENSION = 800;
+          
+          if (width > height) {
+            if (width > MAX_DIMENSION) {
+              height *= MAX_DIMENSION / width;
+              width = MAX_DIMENSION;
+            }
+          } else {
+            if (height > MAX_DIMENSION) {
+              width *= MAX_DIMENSION / height;
+              height = MAX_DIMENSION;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            // Compress to JPEG with 0.8 quality
+            resolve(canvas.toDataURL('image/jpeg', 0.8));
+          } else {
+            resolve(e.target?.result as string);
+          }
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
       };
+      reader.onerror = reject;
       reader.readAsDataURL(file);
     });
   };
@@ -1131,6 +1217,7 @@ export default function App() {
     const currentFiles = [...selectedFiles];
     setSelectedFiles([]);
     setIsLoading(true);
+    stopGenerationRef.current = false;
     
     const modelMessageId = (Date.now() + 1).toString();
     
@@ -1318,6 +1405,19 @@ ${spamRule}]${priceContext}`;
           let lastUpdateTime = Date.now();
 
           while (true) {
+            if (stopGenerationRef.current) {
+              fullResponse += '\n\n*(Quá trình tạo phản hồi đã bị dừng)*';
+              setMessages(prev => prev.map(m => m.id === modelMessageId ? { ...m, content: fullResponse } : m));
+              // Save to sessions
+              if (sessionId) {
+                setSessions(prev => prev.map(s => s.id === sessionId ? {
+                  ...s,
+                  messages: [...s.messages.filter(m => m.id !== modelMessageId), { id: modelMessageId, role: 'model', content: fullResponse }]
+                } : s));
+              }
+              break;
+            }
+
             let chunkTimeoutId: NodeJS.Timeout;
             const chunkTimeout = new Promise((_, reject) => {
               chunkTimeoutId = setTimeout(() => reject(new Error('TIMEOUT')), TIMEOUT_MS);
@@ -1825,6 +1925,30 @@ ${spamRule}]${priceContext}`;
         <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#05030A] to-transparent pointer-events-none" />
         
         <div className="max-w-7xl mx-auto relative group">
+          {/* Stop Generation Button Area */}
+          <AnimatePresence>
+            {isLoading && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                className="absolute bottom-[calc(100%+1rem)] left-1/2 -translate-x-1/2 z-20"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    stopGenerationRef.current = true;
+                    setIsLoading(false); // Make sure to set isLoading down if we also want the UI to quickly respond
+                  }}
+                  className="flex items-center gap-2 flex-nowrap whitespace-nowrap px-4 py-2 bg-slate-800/90 hover:bg-slate-700 backdrop-blur-md border border-slate-600 rounded-full text-slate-300 hover:text-white transition-all shadow-lg text-sm sm:text-base font-semibold"
+                >
+                  <Square className="w-4 h-4 fill-current" />
+                  Dừng tạo câu trả lời
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* File Preview Area */}
           <AnimatePresence>
             {selectedFiles.length > 0 && (
