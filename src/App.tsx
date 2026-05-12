@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
-import { Send, User, Bot, Loader2, AlertCircle, BookOpen, Newspaper, RefreshCcw, Globe, Activity, Image as ImageIcon, X, History, Plus, MessageSquare, Trash2, BarChart2, PanelLeftClose, PanelRightClose, Key, Pencil, Check, Zap, Share2, Download, Square } from 'lucide-react';
+import { Send, User, Bot, Loader2, AlertCircle, BookOpen, Newspaper, RefreshCcw, Globe, Activity, Image as ImageIcon, X, History, Plus, MessageSquare, Trash2, BarChart2, PanelLeftClose, PanelRightClose, Key, Pencil, Check, Zap, Share2, Download, Square, Search } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { motion, AnimatePresence } from 'motion/react';
@@ -783,6 +783,7 @@ const formatMarkdownContent = (content: string) => {
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [isDeepResearchEnabled, setIsDeepResearchEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const stopGenerationRef = useRef<boolean>(false);
   const [selectedFiles, setSelectedFiles] = useState<{url: string, file: File}[]>([]);
@@ -1331,15 +1332,27 @@ export default function App() {
 
       const spamRule = `QUY TẮC CHỐNG SPAM (RẤT QUAN TRỌNG): Bạn ĐÃ GỌI công cụ analyzeSentiment cho các mã [${uniqueSentimentSymbols.join(', ')}] và updateChart cho các mã [${uniqueChartSymbols.join(', ')}] trong các câu trả lời trước. TUYỆT ĐỐI KHÔNG GỌI LẠI các công cụ này cho các mã trên nữa, trừ khi người dùng yêu cầu cập nhật lại rõ ràng. TUYỆT ĐỐI KHÔNG LẶP LẠI những phân tích đã nói ở câu trước, chỉ trả lời thẳng vào ý mới. TUYỆT ĐỐI KHÔNG BAO GIỜ tự viết câu "(Kết nối bị gián đoạn. Vui lòng hỏi tiếp ý bạn đang quan tâm.)" vào câu trả lời của bạn, đây là lỗi hệ thống nghiêm trọng.`;
 
+      let deepResearchPrompt = '';
+      if (isDeepResearchEnabled) {
+        deepResearchPrompt = `
+- [NGHIÊN CỨU CHUYÊN SÂU ĐƯỢC KÍCH HOẠT]: NGƯỜI DÙNG ĐANG YÊU CẦU MỘT BÀI PHÂN TÍCH VÀ TÌM KIẾM CỰC KỲ CHUYÊN SÂU. 
+  BẠN BẮT BUỘC PHẢI THỰC HIỆN CÁC BƯỚC SAU:
+  1. DÙNG CÔNG CỤ TÌM KIẾM GOOGLE ĐỂ ĐÀO SÂU: Ưu tiên tìm kiếm các báo cáo tài chính, báo cáo ngành, phân tích của tổ chức lớn, và nhận định từ chuyên gia. Loại bỏ các tin đồn vô căn cứ và tập trung vào những nguồn tin uy tín.
+  2. BÓC TÁCH NHỮNG THÔNG TIN "ĐẮT GIÁ": Chỉ ra những thông tin cốt lõi, quan trọng mà ít người chú ý, những thay đổi cấu trúc nền tảng mà báo chí đại chúng thường bỏ qua.
+  3. CUNG CẤP GÓC NHÌN ĐỘC BẢN: Đừng lặp lại bề nổi của tin tức. Hãy gắn kết các mảnh ghép tin tức để đưa ra một dự báo hoặc một insight khác biệt có giá trị cao. Thể hiện tư duy độc lập (contrarian) nếu cần thiết.
+  4. CHẤT LƯỢNG KÈM HIỆU QUẢ: Thể hiện đẳng cấp của một chuyên gia phân tích với các dữ liệu thực tế ngắn gọn, súc tích và luận điểm sắc bén.`;
+      }
+
       const dynamicContext = `[HỆ THỐNG: BẠN LÀ MỘT CHUYÊN GIA CHỨNG KHOÁN LÃO LÀNG, CÓ TẦM NHÌN VĨ MÔ VÀ SÂU SẮC. 
 QUY TẮC TỐI THƯỢNG VỀ VĂN PHONG (NẾU VI PHẠM SẼ BỊ PHẠT NẶNG):
 1. VÀO THẲNG VẤN ĐỀ NGAY LẬP TỨC. TUYỆT ĐỐI KHÔNG CHÀO HỎI (Cấm dùng: "Chào bạn", "Dạ", "Mình xin chia sẻ", "Theo yêu cầu của bạn"...).
 2. TUYỆT ĐỐI KHÔNG BAO GIỜ ĐƯỢC IN RA BẤT KỲ THỜI GIAN NÀO TRONG CÂU TRẢ LỜI (Cấm tuyệt đối các cụm từ: "Theo dữ liệu cập nhật lúc...", "Tính đến ngày...", "Vào lúc..."). ĐÂY LÀ LỖI NGHIÊM TRỌNG NHẤT. BẠN SẼ BỊ ĐÁNH GIÁ LÀ ROBOT NẾU VI PHẠM.
 3. TUYỆT ĐỐI KHÔNG TIẾT LỘ GIỚI HẠN DỮ LIỆU CỦA BẠN (Cấm dùng: "Dựa trên dữ liệu 1 năm qua...", "Trong vòng 2 năm gần nhất..."). Hãy phân tích một cách tự nhiên như thể bạn biết toàn bộ lịch sử, chỉ sử dụng dữ liệu được cung cấp ngầm để đưa ra kết luận mà không cần trích dẫn nguồn hay khoảng thời gian giới hạn đó.
-4. Trả lời TỰ NHIÊN, súc tích, cô đọng (dưới 1000 từ), văn phong thâm thúy, sắc bén, bóc tách được bản chất của dòng tiền và tâm lý đám đông.
+4. Trả lời TỰ NHIÊN, súc tích, cô đọng (dưới 1500 từ), văn phong thâm thúy, sắc bén, bóc tách được bản chất của dòng tiền và tâm lý đám đông.
+5. QUY TẮC VỀ NGUỒN VÀ LINK: TUYỆT ĐỐI KHÔNG TỰ VIẾT HAY TẠO BẤT KỲ ĐƯỜNG LINK (URL), NGUỒN THAM KHẢO NÀO VÀO TRONG VĂN BẢN (Cấm viết: "Nguồn: google.com", "Link tham khảo: abc.com"). Hệ thống ứng dụng ĐÃ TỰ ĐỘNG thu thập và đính kèm các đường link ở bên dưới câu trả lời của bạn rồi. Bạn tạo link thường sẽ là link hỏng/hallucinate. Bạn chỉ được phép nhắc tên tờ báo hoặc tổ chức (VD: "Theo báo cáo mới nhất của SSI...", "Tờ CafeF gần đây chỉ ra..."), TUYỆT ĐỐI KHÔNG dán đường link.
 
 QUY TẮC VỀ DỮ LIỆU VÀ PHÂN TÍCH:
-- NẾU NGƯỜI DÙNG HỎI VỀ MỘT MÃ CỔ PHIẾU HOẶC THỊ TRƯỜNG CHUNG (VNINDEX), BẠN BẮT BUỘC PHẢI DÙNG GOOGLE SEARCH ĐỂ TÌM THÔNG TIN MỚI NHẤT (Tin tức, sự kiện vĩ mô, nội tại doanh nghiệp).
+- NẾU NGƯỜI DÙNG HỎI VỀ MỘT MÃ CỔ PHIẾU HOẶC THỊ TRƯỜNG CHUNG (VNINDEX), BẠN BẮT BUỘC PHẢI DÙNG GOOGLE SEARCH ĐỂ TÌM THÔNG TIN MỚI NHẤT (Tin tức, sự kiện vĩ mô, nội tại doanh nghiệp).${deepResearchPrompt}
 - HỆ THỐNG ĐÃ TỰ ĐỘNG CUNG CẤP LỊCH SỬ GIÁ DÀI HẠN (1-2 NĂM) Ở BÊN DƯỚI. BẠN HÃY PHÂN TÍCH TÂM LÝ ĐÁM ĐÔNG MỘT CÁCH LINH HOẠT. Tùy thuộc vào câu hỏi của người dùng (hỏi lướt sóng ngắn hạn hay đầu tư dài hạn) và diễn biến thực tế của cổ phiếu, hãy chọn góc nhìn phù hợp nhất (ngắn hạn T+, trung hạn, hoặc chu kỳ dài hạn) để bóc tách tâm lý dòng tiền. Kết hợp linh hoạt giữa bức tranh toàn cảnh và nhịp đập ngắn hạn để có câu trả lời thỏa đáng và đúng trọng tâm nhất.
 - BẮT BUỘC ÁP DỤNG 'PHÂN TÍCH PHẢN THÂN' (REFLEXIVE ANALYSIS) TRONG MỌI NHẬN ĐỊNH: 
   + Vòng lặp Phản thân (The Feedback Loop): Không chỉ tìm nguyên nhân cho giá, mà phải bóc tách xem GIÁ đang tác động ngược lại KỲ VỌNG như thế nào (VD: Giá tăng không phải vì tin tốt, mà giá tăng khiến đám đông tự 'vẽ' ra tin tốt để hợp thức hóa hành vi mua, hoặc giá giảm khiến họ hoảng loạn phóng đại tin xấu).
@@ -1377,9 +1390,9 @@ ${spamRule}]${priceContext}`;
       while (retries >= 0 && !success) {
         try {
           // ALWAYS re-initialize chat to ensure clean history without duplicate hiddenContexts
-          // Limit history to last 5 messages to prevent payload from getting too large and exceeding max tokens
+          // Limit history to last 40 messages to prevent payload from getting too large and exceeding max tokens
           // We pass the current messages + the new user message
-          const historyMessages = [...messages, userMessage].slice(-5);
+          const historyMessages = [...messages, userMessage].slice(-40);
           initChat(historyMessages, dynamicContext);
 
           // Clear previous state if this is a retry
@@ -1839,23 +1852,24 @@ ${spamRule}]${priceContext}`;
             ) : (
               <div className="space-y-8 pb-4">
                 {messages.map((msg) => (
-                  <MessageItem 
-                    key={msg.id} 
-                    msg={msg} 
-                    onRetry={onRetry}
-                    isThisChartVisible={chartConfig?.symbol === msg.chartConfig?.symbol && isChartVisible}
-                    onToggleChart={() => {
-                      if (chartConfig?.symbol === msg.chartConfig?.symbol && isChartVisible) {
-                        setIsChartVisible(false);
-                      } else {
-                        setChartConfig(msg.chartConfig);
-                        setIsChartVisible(true);
-                      }
-                    }}
-                    onImageClick={setZoomedImage}
-                    onQuickAnalyze={handleQuickAnalyze}
-                    onExport={handleExportImage}
-                  />
+                  <ErrorBoundary key={msg.id}>
+                    <MessageItem 
+                      msg={msg} 
+                      onRetry={onRetry}
+                      isThisChartVisible={chartConfig?.symbol === msg.chartConfig?.symbol && isChartVisible}
+                      onToggleChart={() => {
+                        if (chartConfig?.symbol === msg.chartConfig?.symbol && isChartVisible) {
+                          setIsChartVisible(false);
+                        } else {
+                          setChartConfig(msg.chartConfig);
+                          setIsChartVisible(true);
+                        }
+                      }}
+                      onImageClick={setZoomedImage}
+                      onQuickAnalyze={handleQuickAnalyze}
+                      onExport={handleExportImage}
+                    />
+                  </ErrorBoundary>
                 ))}
                 <div ref={messagesEndRef} />
               </div>
@@ -2062,6 +2076,22 @@ ${spamRule}]${priceContext}`;
                   target.style.height = `${Math.min(target.scrollHeight, 128)}px`;
                 }}
               />
+              <motion.button
+                type="button"
+                onClick={() => setIsDeepResearchEnabled(!isDeepResearchEnabled)}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className={cn(
+                  "flex-shrink-0 flex items-center gap-1.5 p-3 m-1 rounded-[16px] transition-all duration-200 ease-out whitespace-nowrap text-sm sm:text-base font-semibold",
+                  isDeepResearchEnabled 
+                    ? "bg-fuchsia-600/20 text-fuchsia-400 border border-fuchsia-500/50 shadow-[0_0_15px_rgba(217,70,239,0.3)]" 
+                    : "bg-white/5 text-slate-400 hover:text-slate-300 hover:bg-white/10 border border-transparent"
+                )}
+                title="Bật/tắt chế độ nghiên cứu tìm kiếm chuyên sâu liên tục"
+              >
+                <Search className="w-5 h-5" />
+                <span className="hidden sm:inline">Nghiên cứu chuyên sâu</span>
+              </motion.button>
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
