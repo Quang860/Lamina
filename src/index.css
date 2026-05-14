@@ -23,30 +23,33 @@ body {
   font-family: var(--font-sans);
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - Technology Style */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(3, 1, 8, 0.6);
+  border-left: 1px solid rgba(139, 92, 246, 0.1);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(139, 92, 246, 0.1);
-  border-radius: 10px;
-  transition: all 0.3s ease;
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.8), rgba(217, 70, 239, 0.8));
+  border-radius: 8px;
+  border: 2px solid rgba(3, 1, 8, 0.6);
+  background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 92, 246, 0.3);
+  background: linear-gradient(180deg, #a78bfa, #e879f9);
+  border-width: 1px;
 }
 
 /* For Firefox */
 * {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(139, 92, 246, 0.1) transparent;
+  scrollbar-width: auto;
+  scrollbar-color: #d946ef rgba(3, 1, 8, 0.6);
 }
 
 /* Glassmorphism Utilities */

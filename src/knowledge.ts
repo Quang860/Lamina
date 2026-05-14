@@ -209,6 +209,7 @@ Tiếp cận theo chuỗi giá trị từ trên xuống rẽ nhánh:
   + Thượng nguồn (Tạo lập quỹ đất & Hoàn thiện pháp lý dự án).
   + Trung nguồn (Tiến độ thi công, năng lực triển khai các dự án trọng điểm).
   + Hạ nguồn (Chiến lược mở bán, giá bán, chính sách chiết khấu/thanh toán, thu hút mở bán, bàn giao sản phẩm & hạch toán lợi nhuận).
+  + Cấu trúc vốn & Rủi ro thanh khoản: Đánh giá tỷ lệ đòn bẩy, áp lực nợ trái phiếu đáo hạn, và khả năng huy động vốn chéo/đảo nợ của doanh nghiệp.
 - TẦNG 3: HIỆU ỨNG TÂM LÝ & DÒNG TIỀN (Phản thân)
   + Đám đông đang phản ứng với rủi ro pháp lý hay đang fomo vì dự án mới mở bán thành công? Hệ quả đến giá & thanh khoản cổ phiếu ra sao?
 
