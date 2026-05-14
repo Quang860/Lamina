@@ -10,7 +10,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { motion, AnimatePresence } from 'motion/react';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
-import { STOCK_MARKET_KNOWLEDGE } from './knowledge';
+import { STOCK_MARKET_KNOWLEDGE, DYNAMIC_INDUSTRY_FRAMEWORK_PROMPT } from './knowledge';
 import { TradingChart, Trendline, Zone } from './components/TradingChart';
 import { SentimentDashboard } from './components/SentimentDashboard';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -1363,6 +1363,8 @@ QUY TẮC VỀ DỮ LIỆU VÀ PHÂN TÍCH:
 - BẠN ĐƯỢC PHÉP VÀ KHUYẾN KHÍCH gọi analyzeSentiment khi tư vấn điểm mua/bán để làm cơ sở đối chiếu tâm lý đám đông, NHƯNG NHỚ LÀ PHẢI GỌI SAU KHI ĐÃ VIẾT XONG TEXT. NẾU NGƯỜI DÙNG HỎI NHIỀU MÃ, CHỈ GỌI analyzeSentiment CHO 1 MÃ DUY NHẤT.
 - Nếu người dùng hỏi các câu hỏi đời thường, tâm sự, bức xúc cá nhân, BẮT BUỘC PHẢI trả lời CỰC KỲ NGẮN GỌN (1-3 câu), tinh tế, giống như 2 người bạn đang chat.
 - NHỚ IN RA DUY NHẤT 1 DÒNG [GỢI Ý MÃ LIÊN QUAN: ...] Ở CUỐI CÂU TRẢ LỜI NẾU CÓ PHÂN TÍCH CỔ PHIẾU.
+${DYNAMIC_INDUSTRY_FRAMEWORK_PROMPT}
+
 ${spamRule}]${priceContext}`;
       
       let messagePayload: any = text;

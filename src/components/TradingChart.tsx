@@ -33,6 +33,7 @@ interface TradingChartProps {
   zones?: Zone[];
   markers?: ChartMarker[];
   isSimulation?: boolean;
+  currentPrice?: number;
   onClose?: () => void;
 }
 
@@ -45,6 +46,7 @@ export const TradingChart = React.memo(({
   zones = EMPTY_ARRAY, 
   markers = EMPTY_ARRAY,
   isSimulation = true,
+  currentPrice,
   onClose
 }: TradingChartProps) => {
   const chartContainerRef = useRef<HTMLDivElement>(null);
