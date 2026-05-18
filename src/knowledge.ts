@@ -213,7 +213,36 @@ Tiếp cận theo chuỗi giá trị từ trên xuống rẽ nhánh:
 - TẦNG 3: HIỆU ỨNG TÂM LÝ & DÒNG TIỀN (Phản thân)
   + Đám đông đang phản ứng với rủi ro pháp lý hay đang fomo vì dự án mới mở bán thành công? Hệ quả đến giá & thanh khoản cổ phiếu ra sao?
 
-[2. CÁC NGÀNH KHÁC (NGÂN HÀNG, CHỨNG KHOÁN, THÉP, BÁN LẺ, ĐẦU TƯ CÔNG...)]
+[2. NGÀNH ĐẦU TƯ CÔNG & XÂY DỰNG (LCG, VCG, HHV, C4G, CTD, HBC, FCN, KSB, PLC...)]
+Tiếp cận theo vòng đời dự án và chuỗi giá trị:
+- TẦNG 1: VĨ MÔ & BỆ PHÓNG KHỞI TẠO
+  + Ý chí chính trị & Tiến độ giải ngân thực tế (Yếu tố then chốt số 1).
+  + Nguồn lực & Đồng bộ hệ thống pháp luật (Luật Đấu thầu, Luật Đất đai, thủ tục GPMB).
+  + Chi phí nguyên vật liệu (Thép, Xi măng, Đá, Nhựa đường) tác động đến biên lợi nhuận.
+  + Môi trường lãi suất & Khả năng tiếp cận vốn tín dụng.
+- TẦNG 2: CHUỖI GIÁ TRỊ & NĂNG LỰC THỰC THI (Hiệu quả hoạt động)
+  + Chuẩn bị dự án (Đấu thầu & Trúng thầu, Khả năng đảm bảo khối lượng Backlog, Năng lực tài chính & uy tín).
+  + Đầu vào (Tự chủ hoặc khả năng tiếp cận nguyên vật liệu, Máy móc thiết bị, Nhân công).
+  + Quá trình sản xuất / Thi công (Tốc độ thi công, Công nghệ thi công, Khả năng quản trị chi phí & tiến độ, Năng lực giám sát).
+  + Đầu ra & Phân khúc (Tập trung Hạ tầng giao thông, Công nghiệp, hay Dân dụng / Thương mại?).
+  + Chuyển giao & Dòng tiền (Nghiệm thu, Quyết toán, Áp lực vốn lưu động, Khả năng thu hồi công nợ, Tỷ lệ đòn bẩy tài chính).
+- TẦNG 3: HIỆU ỨNG TÂM LÝ & DÒNG TIỀN (Phản thân thị trường)
+  + Sự kỳ vọng vượt quá tiến độ thực tế (Mua vì tin trúng thầu, bán khi bàn giao hoặc chậm trễ). Điểm rơi hạch toán lợi nhuận có tương đồng với đà tăng giá?
+
+[3. NGÀNH THÉP (HPG, HSG, NKG, SMC, TLH, VGS...)]
+Tiếp cận theo bản chất thâm dụng vốn, cấu trúc chuỗi giá trị (Thượng - Trung - Hạ nguồn) và tính chu kỳ:
+- TẦNG 1: BỨC TRANH CUNG CẦU & BIẾN SỐ VĨ MÔ
+  + Động lực Cầu (3 Kênh chính): (i) Xây dựng dân dụng (phụ thuộc tiến độ khởi sắc của BĐS), (ii) Đầu tư công (Kênh "phao cứu sinh" trong suy thoái, tiêu thụ lớn thép dài), (iii) Xuất khẩu (lực kéo chính cho tôn mạ, nhạy cảm với thuế CBPG, rào cản phòng vệ thương mại từ các thị trường trọng điểm Mỹ, EU, ASEAN).
+  + Động lực Cung & Tác động từ Trung Quốc: Trung Quốc chiếm 50% sản lượng toàn cầu. Phải đánh giá mức tồn kho thép dư thừa và chính sách hoàn thuế/xuất khẩu của TQ (yếu tố sẵn sàng tạo "sóng thần" ép giá thép bán nội địa Việt Nam).
+  + Biến động biên độ giá (Steel Spread): Sử dụng Spread_BOF (Giá Thép - Giá Quặng & Than) đối với DN thượng nguồn và Spread_Tôn-HRC (Giá Tôn mạ - Giá HRC đầu vào) với DN hạ nguồn. Đây là chỉ số dự báo sớm nhất cho sự mở rộng/thu hẹp biên lợi nhuận gộp quý kế tiếp.
+- TẦNG 2: MÔ HÌNH KINH DOANH & LỢI THẾ CHUỖI GIÁ TRỊ (Sức khỏe doanh nghiệp)
+  + Vị thế chuỗi giá trị & Công nghệ: Sản xuất khép kín thượng nguồn sử dụng công nghệ Lò cao BOF (Quy mô khổng lồ, chi phí sản xuất thấp nhất nhờ lợi thế quy mô, tự chủ được phôi - HPG) vs Gia công hạ nguồn công nghệ Lò điện EAF/cán tôn (Phụ thuộc và chịu rủi ro rất lớn từ biến động giá HRC/thép phế nhập khẩu đầu vào - HSG, NKG). Việc đánh giá công nghệ (BOF/EAF) là chìa khóa hiểu về mức phát thải CO2, rào cản CBAM.
+  + Quản trị hàng tồn kho & Vốn lưu động: Số ngày tồn kho bình quân, chính sách trích lập dự phòng giảm giá. Quản trị tồn kho định đoạt sự sống còn: Lãi đậm nhờ gom được nguyên liệu giá rẻ đáy chu kỳ, nhưng sẽ chịu tổn thất nặng nếu ôm kho giá cao khi bắt đầu đảo chiều.
+  + Đòn bẩy tài chính & Cấu trúc vốn: Sản xuất thép cần nợ vay nghìn tỷ tài trợ vốn lưu động và CAPEX. Phân tích tỷ lệ Nợ/EBITDA. DN đang vay vốn mở rộng đại dự án (Dung Quất 2 - HPG) sẽ có "nợ tốt" nếu đảm bảo khả năng sinh lời ở chu kỳ sau.
+- TẦNG 3: HIỆU ỨNG TÂM LÝ & DÒNG TIỀN (Phản thân chu kỳ thị trường)
+  + Tính chu kỳ và rào cản gia nhập: Ngành cực kỳ thâm dụng vốn, rào cản gia nhập cao tạo lợi thế cho doanh nghiệp đầu ngành. Cổ phiếu di chuyển rất nhạy bén, đồng pha với giá nguyên vật liệu HRC thế giới và thường phản ánh kỳ vọng phục hồi hoặc dự án mới từ trước khi báo cáo tài chính ghi nhận. Dòng tiền đang định giá trước tương lai bao xa?
+
+[4. CÁC NGÀNH KHÁC (NGÂN HÀNG, CHỨNG KHOÁN, BÁN LẺ...)]
 Dù là ngành nào, bạn BẮT BUỘC phải tiếp cận theo cấu trúc linh hoạt nhưng chuẩn chỉnh:
 - TẦNG 1: BIẾN SỐ VĨ MÔ & CHU KỲ KIẾN TẠO: Xác định ngay yếu tố key-driver (VD: Ngân hàng là NIM & Nợ xấu, Thép là Giá HRC thế giới & Sản lượng, Bán lẻ là Sức cầu dân cư & Tồn kho).
 - TẦNG 2: MÔ HÌNH KINH DOANH & ĐIỂM CHUYỂN PHA (Tipping point): Doanh nghiệp đang nén nút thắt nào? (Mở rộng nhà máy, tăng vốn, dự án mới, hay rủi ro).
