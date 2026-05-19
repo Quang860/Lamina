@@ -850,7 +850,7 @@ export default function App() {
 
     const trimmedHistory = history.slice(-10);
     chatRef.current = aiInstance.chats.create({
-      model: 'gemini-flash-latest',
+      model: 'gemini-3-flash-preview',
       history: trimmedHistory,
       config: {
         systemInstruction: getSystemInstruction(dynamicContext),
