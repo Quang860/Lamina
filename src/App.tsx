@@ -826,10 +826,11 @@ export default function App() {
   const initChat = useCallback((msgs: Message[], dynamicContext: string = '') => {
     // Create a new instance to ensure it uses the most up-to-date API key
   
-   const aiInstance = new GoogleGenAI({
-  vertexai: true,
-  project: process.env.GOOGLE_CLOUD_PROJECT,
-  location: process.env.GOOGLE_CLOUD_LOCATION,
+   const currentApiKey =
+  process.env.API_KEY || process.env.GEMINI_API_KEY;
+
+const aiInstance = new GoogleGenAI({
+  apiKey: currentApiKey,
 });
 
     const history = msgs.map(m => {
