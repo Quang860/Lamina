@@ -16,6 +16,7 @@ import { SentimentDashboard } from './components/SentimentDashboard';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CandlestickData } from 'lightweight-charts';
 import { toPng } from 'html-to-image';
+
 // Utility for Tailwind classes
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -825,13 +826,8 @@ export default function App() {
 
   const initChat = useCallback((msgs: Message[], dynamicContext: string = '') => {
     // Create a new instance to ensure it uses the most up-to-date API key
-  
-   const currentApiKey =
-  process.env.API_KEY || process.env.GEMINI_API_KEY;
-
-const aiInstance = new GoogleGenAI({
-  apiKey: currentApiKey,
-});
+    const currentApiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+    const aiInstance = new GoogleGenAI({ apiKey: currentApiKey });
 
     const history = msgs.map(m => {
       const parts: any[] = [];
