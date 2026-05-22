@@ -16,7 +16,6 @@ import { SentimentDashboard } from './components/SentimentDashboard';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { CandlestickData } from 'lightweight-charts';
 import { toPng } from 'html-to-image';
-import fs from 'fs';
 // Utility for Tailwind classes
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -826,19 +825,7 @@ export default function App() {
 
   const initChat = useCallback((msgs: Message[], dynamicContext: string = '') => {
     // Create a new instance to ensure it uses the most up-to-date API key
-   if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
-  const credentials = JSON.parse(
-    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
-  );
-
-  fs.writeFileSync(
-    "/tmp/gcp-key.json",
-    JSON.stringify(credentials)
-  );
-
-  process.env.GOOGLE_APPLICATION_CREDENTIALS =
-    "/tmp/gcp-key.json";
-} 
+  
    const aiInstance = new GoogleGenAI({
   vertexai: true,
   project: process.env.GOOGLE_CLOUD_PROJECT,
